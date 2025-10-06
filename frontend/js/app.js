@@ -21,6 +21,11 @@ function showView(viewName) {
       link.classList.add('active')
     }
   })
+
+  // Initialize view-specific logic
+  if (viewName === 'cards' && typeof initCardsView === 'function') {
+    initCardsView()
+  }
 }
 
 // Navigation click handler
@@ -57,7 +62,7 @@ async function apiPost(endpoint, data) {
   return response.json()
 }
 
-async function apiPut(endpoint, data) {
+async function apiPut(endpoint, data = {}) {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -73,14 +78,36 @@ async function apiDelete(endpoint) {
   return response.json()
 }
 
-// Test API connection on load
-async function testApi() {
+// Global card cache
+let allCardsCache = []
+let cardsLoaded = false
+
+// Load all cards on startup
+async function loadAllCards() {
+  if (cardsLoaded) {
+    return allCardsCache
+  }
+
   try {
-    const result = await apiGet('/health')
-    console.log('✅ API connected:', result)
+    allCardsCache = await apiGet('/cards')
+    cardsLoaded = true
+    return allCardsCache
   } catch (error) {
-    console.error('❌ API connection failed:', error)
+    console.error('❌ Failed to load cards:', error)
+    return []
   }
 }
 
-testApi()
+// Test API connection and load cards on startup
+async function initializeApp() {
+  try {
+    await apiGet('/health')
+  } catch (error) {
+    console.error('❌ API connection failed:', error)
+  }
+
+  // Load all cards on startup
+  await loadAllCards()
+}
+
+initializeApp()
