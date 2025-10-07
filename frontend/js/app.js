@@ -1,53 +1,6 @@
-// Simple client-side routing
+// API helper functions
 const API_BASE = '/api'
 
-// View management
-function showView(viewName) {
-  // Hide all views
-  document.querySelectorAll('.view').forEach(view => {
-    view.classList.remove('active')
-  })
-
-  // Show selected view
-  const targetView = document.getElementById(`${viewName}-view`)
-  if (targetView) {
-    targetView.classList.add('active')
-  }
-
-  // Update nav active state
-  document.querySelectorAll('.nav-link').forEach(link => {
-    link.classList.remove('active')
-    if (link.getAttribute('href') === `#${viewName}`) {
-      link.classList.add('active')
-    }
-  })
-
-  // Initialize view-specific logic
-  if (viewName === 'cards' && typeof initCardsView === 'function') {
-    initCardsView()
-  }
-}
-
-// Navigation click handler
-document.querySelectorAll('.nav-link').forEach(link => {
-  link.addEventListener('click', (e) => {
-    e.preventDefault()
-    const viewName = link.getAttribute('href').substring(1)
-    window.location.hash = viewName
-    showView(viewName)
-  })
-})
-
-// Handle initial route and browser back/forward
-function handleRoute() {
-  const hash = window.location.hash.substring(1) || 'home'
-  showView(hash)
-}
-
-window.addEventListener('hashchange', handleRoute)
-window.addEventListener('load', handleRoute)
-
-// API helper functions
 async function apiGet(endpoint) {
   const response = await fetch(`${API_BASE}${endpoint}`)
   return response.json()

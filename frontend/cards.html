@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cards - Deckscribe</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <h1>Deckscribe</h1>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Home</a>
+      <a href="cards.html" class="nav-link active">Cards</a>
+      <a href="packages.html" class="nav-link">Packages</a>
+      <a href="decks.html" class="nav-link">Decks</a>
+      <a href="syntax.html" class="nav-link">Syntax Guide</a>
+    </div>
+  </nav>
+
+  <main class="container split-view">
+      <!-- Sidebar: Package Draft -->
+      <aside class="sidebar package-sidebar">
+        <div class="sidebar-header">
+          <h3>New Package</h3>
+          <button id="save-package-btn" class="btn btn-primary">Save</button>
+        </div>
+
+        <!-- Package Form -->
+        <div class="package-form">
+          <input type="text" id="package-name" placeholder="Package name" class="input-block">
+          <input type="text" id="package-description" placeholder="Description" class="input-block">
+          <textarea id="package-notes" rows="2" placeholder="Notes" class="input-block"></textarea>
+        </div>
+
+        <div class="card-count"><span id="package-card-count">0</span> cards</div>
+
+        <!-- Ink Colors -->
+        <div class="ink-colors-compact">
+          <img class="ink-icon" data-color="Amber" src="img/amber.png" alt="Amber" title="Amber">
+          <img class="ink-icon" data-color="Amethyst" src="img/amethyst.png" alt="Amethyst" title="Amethyst">
+          <img class="ink-icon" data-color="Emerald" src="img/emerald.png" alt="Emerald" title="Emerald">
+          <img class="ink-icon" data-color="Ruby" src="img/ruby.png" alt="Ruby" title="Ruby">
+          <img class="ink-icon" data-color="Sapphire" src="img/sapphire.png" alt="Sapphire" title="Sapphire">
+          <img class="ink-icon" data-color="Steel" src="img/steel.png" alt="Steel" title="Steel">
+        </div>
+
+        <!-- Draft Cards -->
+        <div id="package-draft-cards" class="draft-cards-sidebar">
+          <p class="empty-state-small">Click cards to add</p>
+        </div>
+
+        <!-- Actions -->
+        <div class="sidebar-actions">
+          <button id="clear-package-btn" class="btn btn-secondary btn-block" style="display: none;">Clear</button>
+        </div>
+      </aside>
+
+      <!-- Main Content: Card Browser -->
+      <div class="main-content">
+        <div class="search-bar-sticky">
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="text" id="card-query" placeholder="Search cards or use query syntax" style="flex: 1;">
+            <button id="filter-toggle-btn" class="btn btn-secondary" style="padding: 0.75rem 1rem;">Filters</button>
+          </div>
+
+          <!-- Filter Row (hidden by default) -->
+          <div id="filter-row" class="filter-row" style="display: none;">
+            <div class="filter-section">
+              <div class="filter-ink-colors">
+                <img class="filter-ink-btn" data-filter="i:y" data-color="amber" src="img/amber.png" alt="Amber" title="Amber (i:y)">
+                <img class="filter-ink-btn" data-filter="i:p" data-color="amethyst" src="img/amethyst.png" alt="Amethyst" title="Amethyst (i:p)">
+                <img class="filter-ink-btn" data-filter="i:e" data-color="emerald" src="img/emerald.png" alt="Emerald" title="Emerald (i:e)">
+                <img class="filter-ink-btn" data-filter="i:r" data-color="ruby" src="img/ruby.png" alt="Ruby" title="Ruby (i:r)">
+                <img class="filter-ink-btn" data-filter="i:b" data-color="sapphire" src="img/sapphire.png" alt="Sapphire" title="Sapphire (i:b)">
+                <img class="filter-ink-btn" data-filter="i:steel" data-color="steel" src="img/steel.png" alt="Steel" title="Steel (i:steel)">
+              </div>
+            </div>
+            <div class="filter-section">
+              <div class="filter-chips">
+                <button class="filter-chip" data-filter="t:character">Character</button>
+                <button class="filter-chip" data-filter="t:action">Action</button>
+                <button class="filter-chip" data-filter="t:item">Item</button>
+                <button class="filter-chip" data-filter="t:location">Location</button>
+                <button class="filter-chip" data-filter="t:song">Song</button>
+              </div>
+            </div>
+            <div class="filter-section">
+              <div class="filter-chips">
+                <button class="filter-chip" data-filter="core">Core</button>
+                <button class="filter-chip" data-filter="infinity">Infinity</button>
+              </div>
+            </div>
+            <div class="filter-section">
+              <div class="filter-chips">
+                <button class="filter-chip" data-filter="inkable">Inkable</button>
+                <button class="filter-chip" data-filter="noninkable">Non-Inkable</button>
+              </div>
+            </div>
+            <div class="query-examples">
+              <strong>Quick Tips:</strong>
+              <code>i:y</code> yellow ·
+              <code>i:yp</code> yellow OR purple ·
+              <code>c>=4</code> cost 4+ ·
+              <code>t:character</code> characters ·
+              <code>sort:cost</code> sort by cost ·
+              <code>-t:song</code> exclude songs ·
+              <code>elsa</code> name search ·
+              <a href="syntax.html" style="color: #2563eb; text-decoration: none; font-weight: 600;">Full Syntax Guide →</a>
+            </div>
+          </div>
+        </div>
+        <div id="card-grid" class="card-grid">
+          <p class="loading">Loading cards...</p>
+        </div>
+      </div>
+  </main>
+
+  <script src="js/query-parser.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/cards.js"></script>
+  <script>
+    // Auto-initialize cards view on load
+    window.addEventListener('load', () => {
+      if (typeof initCardsView === 'function') {
+        initCardsView()
+      }
+    })
+  </script>
+</body>
+</html>

@@ -38,9 +38,6 @@ package-lock.json
 dist/
 build/
 
-# Data directory (user data, not committed)
-data/
-
 # IDE
 .vscode/
 .idea/

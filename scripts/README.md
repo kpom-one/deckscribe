@@ -59,3 +59,64 @@ The script creates `data/cards.json` with the following structure:
 - The `data/` directory is gitignored - each developer runs this script locally
 - File size is typically 2-3 MB for ~2000 cards
 - Script takes ~10-15 seconds to complete
+
+---
+
+## fix-legalities.js
+
+Fixes legality data in `data/cards.json` to properly support Core Constructed and Infinity formats.
+
+### Usage
+
+```bash
+node scripts/fix-legalities.js
+```
+
+### What it does
+
+1. Backs up `data/cards.json` to `data/cards.json.backup`
+2. Sets all cards as Infinity legal (`legalities.infinity = true`)
+3. For cards from sets 1-4: removes `legalities.core` (not legal in Core Constructed)
+4. For cards from sets 5+: sets `legalities.core = true`
+5. For promotional/special sets (D23, P1, P2, cp): removes `legalities.core`
+6. Writes the updated data back to `data/cards.json`
+
+### When to run
+
+- **After fetching cards**: The Lorcast API has incomplete/incorrect legality data
+- **One-time fix**: Run once after `fetch-cards.sh` to correct legalities
+- **After API updates**: Run if legality data is incorrect after fetching new cards
+
+### Requirements
+
+- Node.js
+- `data/cards.json` must exist (run `fetch-cards.sh` first)
+
+### Output
+
+Updates card legalities to:
+
+**Sets 1-4 (First Chapter, Rise of the Floodborn, Into the Inklands, Ursula's Return):**
+```json
+{
+  "legalities": {
+    "infinity": true
+  }
+}
+```
+
+**Sets 5+ (Shimmering Skies, Azurite Sea, etc.):**
+```json
+{
+  "legalities": {
+    "infinity": true,
+    "core": true
+  }
+}
+```
+
+### Notes
+
+- Creates automatic backup at `data/cards.json.backup`
+- Safe to run multiple times (idempotent)
+- Processes ~2000 cards in under 1 second

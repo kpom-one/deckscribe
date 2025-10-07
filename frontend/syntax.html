@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Syntax Guide - Deckscribe</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <h1>Deckscribe</h1>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Home</a>
+      <a href="cards.html" class="nav-link">Cards</a>
+      <a href="packages.html" class="nav-link">Packages</a>
+      <a href="decks.html" class="nav-link">Decks</a>
+      <a href="syntax.html" class="nav-link active">Syntax Guide</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="syntax-guide">
+      <h2>Query Syntax Guide</h2>
+      <p class="syntax-intro">Search and filter cards using a powerful text-based query language. Combine multiple filters to find exactly what you need.</p>
+
+      <div class="syntax-section">
+        <h3>Basic Search</h3>
+        <div class="syntax-item">
+          <code>elsa</code>
+          <span>Search card names (fuzzy match)</span>
+        </div>
+      </div>
+
+      <div class="syntax-section">
+        <h3>Ink Colors</h3>
+        <div class="syntax-item">
+          <code>i:y</code> or <code>i:amber</code>
+          <span>Filter by ink color</span>
+        </div>
+        <div class="syntax-colors">
+          <strong>Color shortcuts:</strong>
+          <span><code>y</code> <code>yellow</code> <code>gold</code> = Amber</span>
+          <span><code>p</code> <code>purple</code> = Amethyst</span>
+          <span><code>e</code> <code>g</code> <code>green</code> = Emerald</span>
+          <span><code>r</code> <code>red</code> = Ruby</span>
+          <span><code>b</code> <code>u</code> <code>blue</code> = Sapphire</span>
+          <span><code>steel</code> <code>silver</code> = Steel</span>
+        </div>
+        <div class="syntax-item">
+          <code>i:yp</code>
+          <span>Multiple colors (yellow OR purple)</span>
+        </div>
+        <div class="syntax-item">
+          <code>i:ym</code>
+          <span>Multicolor cards containing yellow</span>
+        </div>
+        <div class="syntax-item">
+          <code>m</code> or <code>multicolor</code>
+          <span>All multicolor cards</span>
+        </div>
+      </div>
+
+      <div class="syntax-section">
+        <h3>Card Properties</h3>
+        <div class="syntax-item">
+          <code>c:4</code> or <code>c=4</code>
+          <span>Cost equals 4</span>
+        </div>
+        <div class="syntax-item">
+          <code>c>=4</code> <code>c<=7</code>
+          <span>Cost comparisons (>=, <=, >, <, !=)</span>
+        </div>
+        <div class="syntax-item">
+          <code>s>=5</code>
+          <span>Strength 5 or higher</span>
+        </div>
+        <div class="syntax-item">
+          <code>w>=4</code>
+          <span>Willpower 4 or higher</span>
+        </div>
+        <div class="syntax-item">
+          <code>l>=2</code>
+          <span>Lore 2 or higher</span>
+        </div>
+      </div>
+
+      <div class="syntax-section">
+        <h3>Card Types</h3>
+        <div class="syntax-item">
+          <code>t:character</code>
+          <span>Characters only</span>
+        </div>
+        <div class="syntax-item">
+          <code>t:action</code> <code>t:item</code> <code>t:location</code> <code>t:song</code>
+          <span>Other card types</span>
+        </div>
+      </div>
+
+      <div class="syntax-section">
+        <h3>Text & Attributes</h3>
+        <div class="syntax-item">
+          <code>o:draw</code>
+          <span>Text contains "draw" (ability search)</span>
+        </div>
+        <div class="syntax-item">
+          <code>k:hero</code>
+          <span>Characteristics (Hero, Villain, Storyborn, etc.)</span>
+        </div>
+        <div class="syntax-item">
+          <code>r:rare</code>
+          <span>Rarity (common, uncommon, rare, super, legendary)</span>
+        </div>
+      </div>
+
+      <div class="syntax-section">
+        <h3>Format & Inkwell</h3>
+        <div class="syntax-item">
+          <code>core</code>
+          <span>Legal in Core Constructed (sets 5+)</span>
+        </div>
+        <div class="syntax-item">
+          <code>infinity</code>
+          <span>Legal in Infinity format (all cards)</span>
+        </div>
+        <div class="syntax-item">
+          <code>inkable</code>
+          <span>Can be played as ink</span>
+        </div>
+        <div class="syntax-item">
+          <code>noninkable</code>
+          <span>Cannot be played as ink</span>
+        </div>
+      </div>
+
+      <div class="syntax-section">
+        <h3>Negation</h3>
+        <div class="syntax-item">
+          <code>-t:song</code>
+          <span>Exclude songs</span>
+        </div>
+        <div class="syntax-item">
+          <code>-inkable</code>
+          <span>Exclude inkable cards</span>
+        </div>
+      </div>
+
+      <div class="syntax-section">
+        <h3>Sorting Results</h3>
+        <div class="syntax-item">
+          <code>sort:cost</code> or <code>s:cost</code>
+          <span>Sort by cost (ascending)</span>
+        </div>
+        <div class="syntax-item">
+          <code>sort:-cost</code> or <code>s:-cost</code>
+          <span>Sort by cost (descending) - prefix with <code>-</code> to reverse</span>
+        </div>
+        <div class="syntax-item">
+          <code>sort:color</code>
+          <span>Sort by ink color (Amber → Steel)</span>
+        </div>
+        <div class="syntax-item">
+          <code>sort:type</code>
+          <span>Sort by card type</span>
+        </div>
+        <div class="syntax-item">
+          <code>sort:set</code>
+          <span>Sort by set and collector number</span>
+        </div>
+        <div class="syntax-item">
+          <code>sort:lore</code>
+          <span>Sort by lore (descending by default)</span>
+        </div>
+        <div class="syntax-item">
+          <code>sort:str</code> <code>sort:will</code>
+          <span>Sort by strength or willpower (descending by default)</span>
+        </div>
+        <div class="syntax-item">
+          <code>sort:-name</code>
+          <span>Reverse alphabetical order (Z → A)</span>
+        </div>
+        <div class="syntax-note">
+          <strong>Note:</strong> Default sort is by name. Add <code>-</code> prefix to any sort field to reverse the order (e.g., <code>sort:-set</code> for newest sets first).
+        </div>
+      </div>
+
+      <div class="syntax-section">
+        <h3>Combining Filters</h3>
+        <div class="syntax-item">
+          <code>i:y c>=4 t:character sort:cost</code>
+          <span>Yellow characters costing 4+, sorted by cost</span>
+        </div>
+        <div class="syntax-item">
+          <code>i:yp l>=2 inkable sort:-lore</code>
+          <span>Yellow or purple, 2+ lore, inkable, sorted by lore (highest first)</span>
+        </div>
+        <div class="syntax-item">
+          <code>core o:draw -t:song sort:-set</code>
+          <span>Core legal cards with "draw", excluding songs, newest sets first</span>
+        </div>
+      </div>
+
+      <div class="syntax-section">
+        <h3>Field Reference</h3>
+        <table class="syntax-table">
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Shortcut</th>
+              <th>Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Name</td><td><code>n:</code></td><td><code>n:elsa</code></td></tr>
+            <tr><td>Ink</td><td><code>i:</code></td><td><code>i:amber</code></td></tr>
+            <tr><td>Cost</td><td><code>c:</code></td><td><code>c>=4</code></td></tr>
+            <tr><td>Type</td><td><code>t:</code></td><td><code>t:character</code></td></tr>
+            <tr><td>Strength</td><td><code>s:</code></td><td><code>s>=5</code></td></tr>
+            <tr><td>Willpower</td><td><code>w:</code></td><td><code>w>=4</code></td></tr>
+            <tr><td>Lore</td><td><code>l:</code></td><td><code>l>=2</code></td></tr>
+            <tr><td>Rarity</td><td><code>r:</code></td><td><code>r:rare</code></td></tr>
+            <tr><td>Text</td><td><code>o:</code></td><td><code>o:draw</code></td></tr>
+            <tr><td>Characteristics</td><td><code>k:</code></td><td><code>k:hero</code></td></tr>
+            <tr><td>Format</td><td><code>f:</code></td><td><code>f:core</code></td></tr>
+            <tr><td>Sort</td><td><code>sort:</code> or <code>s:</code></td><td><code>sort:cost</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="syntax-tips">
+        <h3>Tips</h3>
+        <ul>
+          <li>Filters are separated by spaces</li>
+          <li>Multiple filters of same type = OR (e.g., <code>i:y i:p</code> = yellow OR purple)</li>
+          <li>Different filter types = AND (e.g., <code>i:y c>=4</code> = yellow AND cost 4+)</li>
+          <li>Press Space or Enter to apply filters</li>
+          <li>Queries persist in the URL for easy sharing</li>
+        </ul>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
