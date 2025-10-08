@@ -7,6 +7,7 @@ class QueryParser {
     this.fieldAliases = {
       'n': 'name',
       'i': 'ink',
+      'i!': 'ink_exclusive',
       'c': 'cost',
       't': 'type',
       's': 'strength',
@@ -50,6 +51,7 @@ class QueryParser {
       'b': 'sapphire',
       'u': 'sapphire',
       'steel': 'steel',
+      's': 'steel',
       'silver': 'steel'
     }
   }
@@ -79,7 +81,34 @@ class QueryParser {
       const negated = part.startsWith('-')
       const cleaned = negated ? part.substring(1) : part
 
-      // Check for boolean flags first
+      // Check for exclusive ink syntax first (i!gs, i!yp, etc.)
+      if (cleaned.toLowerCase().startsWith('i!')) {
+        const colorPart = cleaned.substring(2).toLowerCase()
+        const hasMulti = colorPart.includes('m')
+        const colorChars = colorPart.replace(/m/g, '').split('')
+        const colors = colorChars.map(c => this.normalizeInkColor(c)).filter(c => c)
+
+        if (colors.length > 0) {
+          tokens.push({
+            field: 'ink_exclusive',
+            operator: '=',
+            value: colors.join('|'),
+            negated: negated
+          })
+        }
+
+        if (hasMulti) {
+          tokens.push({
+            field: 'multicolor',
+            operator: '=',
+            value: true,
+            negated: negated
+          })
+        }
+        continue
+      }
+
+      // Check for boolean flags
       if (this.booleanFlags[cleaned.toLowerCase()]) {
         const flag = this.booleanFlags[cleaned.toLowerCase()]
         tokens.push({
@@ -98,31 +127,55 @@ class QueryParser {
         const value = valueParts.join(':') // In case value contains ':'
         const normalizedField = this.normalizeField(field)
 
-        // Special handling for ink field with multi-character values
-        if (normalizedField === 'ink' && value.length > 1) {
+        // Special handling for ink field
+        if (normalizedField === 'ink') {
           const valueLower = value.toLowerCase()
-          const hasMulti = valueLower.includes('m')
 
-          // Split into individual characters and normalize each color
-          const colorChars = valueLower.replace(/m/g, '').split('')
-          const colors = colorChars.map(c => this.normalizeInkColor(c)).filter(c => c)
+          // Check if it's a full color name first (amber, amethyst, emerald, ruby, sapphire, steel)
+          const fullColorNormalized = this.normalizeInkColor(valueLower)
+          const isFullColorName = ['amber', 'amethyst', 'emerald', 'ruby', 'sapphire', 'steel'].includes(fullColorNormalized)
 
-          // Add token with all colors (OR logic)
-          if (colors.length > 0) {
+          // If it's a full color name, treat as single color
+          if (isFullColorName) {
             tokens.push({
               field: 'ink',
               operator: '=',
-              value: colors.join('|'), // Pipe-separated for OR
+              value: fullColorNormalized,
               negated: negated
             })
-          }
+          } else if (value.length > 1) {
+            // Multi-character shorthand (e.g., i:yp for yellow+purple)
+            const hasMulti = valueLower.includes('m')
 
-          // Add multicolor requirement if 'm' was present
-          if (hasMulti) {
+            // Split into individual characters and normalize each color
+            const colorChars = valueLower.replace(/m/g, '').split('')
+            const colors = colorChars.map(c => this.normalizeInkColor(c)).filter(c => c)
+
+            // Add token with all colors (OR logic)
+            if (colors.length > 0) {
+              tokens.push({
+                field: 'ink',
+                operator: '=',
+                value: colors.join('|'), // Pipe-separated for OR
+                negated: negated
+              })
+            }
+
+            // Add multicolor requirement if 'm' was present
+            if (hasMulti) {
+              tokens.push({
+                field: 'multicolor',
+                operator: '=',
+                value: true,
+                negated: negated
+              })
+            }
+          } else {
+            // Single character or unknown, treat as-is
             tokens.push({
-              field: 'multicolor',
+              field: 'ink',
               operator: '=',
-              value: true,
+              value: fullColorNormalized || valueLower,
               negated: negated
             })
           }
@@ -220,6 +273,12 @@ class QueryParser {
           return card.inks
         }
         return card.ink ? [card.ink] : []
+      case 'ink_exclusive':
+        // Same as ink, but will be handled differently in compareValues
+        if (card.inks && Array.isArray(card.inks)) {
+          return card.inks
+        }
+        return card.ink ? [card.ink] : []
       case 'cost':
         return card.cost
       case 'type':
@@ -260,6 +319,18 @@ class QueryParser {
     // Handle null/undefined
     if (cardValue === null || cardValue === undefined) {
       return false
+    }
+
+    // Special handling for exclusive ink match
+    if (field === 'ink_exclusive' && Array.isArray(cardValue)) {
+      // queryValue is pipe-separated allowed colors (e.g., "emerald|steel")
+      const allowedColors = queryValue.split('|').map(c => c.toLowerCase())
+      const cardColors = cardValue.map(c => c.toLowerCase())
+
+      // Check that ALL card colors are in the allowed set
+      return cardColors.every(cardColor =>
+        allowedColors.some(allowed => cardColor.includes(allowed))
+      )
     }
 
     // Special handling for arrays (ink colors, format, characteristics)

@@ -44,11 +44,15 @@
           <span><code>e</code> <code>g</code> <code>green</code> = Emerald</span>
           <span><code>r</code> <code>red</code> = Ruby</span>
           <span><code>b</code> <code>u</code> <code>blue</code> = Sapphire</span>
-          <span><code>steel</code> <code>silver</code> = Steel</span>
+          <span><code>s</code> <code>steel</code> <code>silver</code> = Steel</span>
         </div>
         <div class="syntax-item">
           <code>i:yp</code>
           <span>Multiple colors (yellow OR purple)</span>
+        </div>
+        <div class="syntax-item">
+          <code>i!gs</code>
+          <span>ONLY green/steel (excludes green+other or steel+other)</span>
         </div>
         <div class="syntax-item">
           <code>i:ym</code>
@@ -113,15 +117,14 @@
       </div>
 
       <div class="syntax-section">
-        <h3>Format & Inkwell</h3>
-        <div class="syntax-item">
-          <code>core</code>
-          <span>Legal in Core Constructed (sets 5+)</span>
+        <h3>Format</h3>
+        <div class="syntax-note">
+          <strong>Format is controlled by the Core/Infinity toggle</strong> at the top of the cards page. You don't need to include format in your queries.
         </div>
-        <div class="syntax-item">
-          <code>infinity</code>
-          <span>Legal in Infinity format (all cards)</span>
-        </div>
+      </div>
+
+      <div class="syntax-section">
+        <h3>Inkwell</h3>
         <div class="syntax-item">
           <code>inkable</code>
           <span>Can be played as ink</span>
@@ -194,8 +197,8 @@
           <span>Yellow or purple, 2+ lore, inkable, sorted by lore (highest first)</span>
         </div>
         <div class="syntax-item">
-          <code>core o:draw -t:song sort:-set</code>
-          <span>Core legal cards with "draw", excluding songs, newest sets first</span>
+          <code>o:draw -t:song sort:-set</code>
+          <span>Cards with "draw", excluding songs, newest sets first</span>
         </div>
       </div>
 
@@ -220,7 +223,6 @@
             <tr><td>Rarity</td><td><code>r:</code></td><td><code>r:rare</code></td></tr>
             <tr><td>Text</td><td><code>o:</code></td><td><code>o:draw</code></td></tr>
             <tr><td>Characteristics</td><td><code>k:</code></td><td><code>k:hero</code></td></tr>
-            <tr><td>Format</td><td><code>f:</code></td><td><code>f:core</code></td></tr>
             <tr><td>Sort</td><td><code>sort:</code> or <code>s:</code></td><td><code>sort:cost</code></td></tr>
           </tbody>
         </table>
@@ -229,6 +231,7 @@
       <div class="syntax-tips">
         <h3>Tips</h3>
         <ul>
+          <li>Use the <strong>Core/Infinity toggle</strong> at the top of the cards page to control format</li>
           <li>Filters are separated by spaces</li>
           <li>Multiple filters of same type = OR (e.g., <code>i:y i:p</code> = yellow OR purple)</li>
           <li>Different filter types = AND (e.g., <code>i:y c>=4</code> = yellow AND cost 4+)</li>

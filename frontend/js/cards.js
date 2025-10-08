@@ -5,6 +5,7 @@ let packageDraft = {
   cards: [] // Array of card objects { name, image, colors: [] }
 }
 
+let selectedFormat = 'core' // Default to core
 let cardsViewInitialized = false
 
 // Initialize cards view
@@ -58,6 +59,30 @@ async function initCardsView() {
   }
   if (saveBtn) {
     saveBtn.addEventListener('click', savePackage)
+  }
+
+  // Set up format selector
+  const formatCoreBtn = document.getElementById('format-core-btn')
+  const formatInfinityBtn = document.getElementById('format-infinity-btn')
+
+  if (formatCoreBtn) {
+    formatCoreBtn.addEventListener('click', () => {
+      selectedFormat = 'core'
+      formatCoreBtn.classList.add('active')
+      formatInfinityBtn.classList.remove('active')
+      const queryInput = document.getElementById('card-query')
+      renderCardBrowser(queryInput ? queryInput.value : '')
+    })
+  }
+
+  if (formatInfinityBtn) {
+    formatInfinityBtn.addEventListener('click', () => {
+      selectedFormat = 'infinity'
+      formatInfinityBtn.classList.add('active')
+      formatCoreBtn.classList.remove('active')
+      const queryInput = document.getElementById('card-query')
+      renderCardBrowser(queryInput ? queryInput.value : '')
+    })
   }
 
   // Set up filter toggle
@@ -312,10 +337,19 @@ function renderCardBrowser(queryText = '') {
     }
   }
 
+  // Remove any existing format keywords from user query
+  queryText = queryText.replace(/\b(core|infinity)\b/gi, '').trim()
+
+  // Build full query with format filter
+  let fullQuery = queryText
+  if (selectedFormat) {
+    fullQuery = fullQuery ? `${fullQuery} ${selectedFormat}` : selectedFormat
+  }
+
   // Apply query filter
-  if (queryText) {
+  if (fullQuery) {
     try {
-      cardsToShow = applyQuery(cardsToShow, queryText)
+      cardsToShow = applyQuery(cardsToShow, fullQuery)
     } catch (error) {
       container.innerHTML = `<p class="empty-state">Invalid query: ${error.message}</p>`
       return
@@ -588,6 +622,7 @@ function normalizeInkColorAlias(char) {
     'u': 'sapphire',
     'blue': 'sapphire',
     'sapphire': 'sapphire',
+    's': 'steel',
     'steel': 'steel',
     'silver': 'steel'
   }

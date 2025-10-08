@@ -158,6 +158,39 @@ label {
   padding: 1rem;
 }
 
+/* Format Selector */
+.format-selector {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.format-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: white;
+  color: #64748b;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.format-btn:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.format-btn.active {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
 .sidebar-header {
   display: flex;
   justify-content: space-between;
@@ -470,15 +503,16 @@ label {
   border-radius: 8px;
   padding: 0.5rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   text-align: center;
 }
 
 .card-item:hover {
   border-color: #2563eb;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+  transform: scale(1.4);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  z-index: 100;
 }
 
 .card-item.selected {
@@ -701,4 +735,192 @@ label {
   font-family: 'Courier New', monospace;
   font-size: 0.85rem;
   color: #2563eb;
+}
+
+/* Packages View */
+.deck-creation-bar {
+  padding: 1rem;
+  background: white;
+  border-bottom: 2px solid #e5e7eb;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.deck-name-input {
+  flex: 1;
+  max-width: 300px;
+  padding: 0.75rem;
+  font-size: 1rem;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+}
+
+.deck-name-input:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.deck-stats {
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.deck-stats span {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.package-list {
+  padding: 1rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.package-row {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.package-row:hover {
+  border-color: #2563eb;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.15);
+}
+
+.package-row.selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.package-info {
+  flex-shrink: 0;
+  min-width: 200px;
+  max-width: 300px;
+}
+
+.package-name {
+  margin: 0 0 0.25rem 0;
+  color: #1e293b;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.package-description {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.package-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.package-card-item {
+  pointer-events: none;
+}
+
+.package-card-image {
+  height: 120px;
+  width: auto;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.package-card-placeholder {
+  height: 120px;
+  width: 85px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: #6b7280;
+  text-align: center;
+  padding: 0.5rem;
+  word-wrap: break-word;
+}
+
+/* Selected packages sidebar */
+.selected-package-item {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.selected-package-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.selected-package-header strong {
+  font-size: 0.9rem;
+  color: #1e293b;
+}
+
+.remove-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.remove-btn:hover {
+  background: #dc2626;
+}
+
+.selected-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+}
+
+.selected-card-mini-image {
+  width: 100%;
+  height: auto;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.selected-card-mini-placeholder {
+  width: 100%;
+  height: 50px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  color: #6b7280;
+  text-align: center;
+  padding: 0.25rem;
+  word-wrap: break-word;
 }

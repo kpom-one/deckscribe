@@ -1,14 +1,12 @@
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
-import type { Package } from '@deckscribe/shared'
+import type { Package, Deck } from '@deckscribe/shared'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { packageDb, deckDb } from './db'
 
 const app = new Hono()
-
-// In-memory storage
-const packages = new Map<string, Package>()
 
 // Load cards from local JSON file
 let allCards: any[] = []
@@ -46,13 +44,13 @@ app.get('/api/cards', (c) => {
 
 // Packages - List all
 app.get('/api/packages', (c) => {
-  return c.json(Array.from(packages.values()))
+  return c.json(packageDb.getAll())
 })
 
 // Packages - Get one
 app.get('/api/packages/:id', (c) => {
   const id = c.req.param('id')
-  const pkg = packages.get(id)
+  const pkg = packageDb.getById(id)
   if (!pkg) {
     return c.json({ error: 'Package not found' }, 404)
   }
@@ -73,37 +71,84 @@ app.post('/api/packages', async (c) => {
     created_at: new Date().toISOString(),
   }
 
-  packages.set(pkg.id, pkg)
+  packageDb.create(pkg)
   return c.json(pkg, 201)
 })
 
 // Packages - Finalize (make immutable)
 app.put('/api/packages/:id/finalize', (c) => {
   const id = c.req.param('id')
-  const pkg = packages.get(id)
+  const pkg = packageDb.getById(id)
 
   if (!pkg) {
     return c.json({ error: 'Package not found' }, 404)
   }
 
-  pkg.isImmutable = true
-  packages.set(id, pkg)
-
-  return c.json(pkg)
+  const updated = packageDb.update(id, { isImmutable: true })
+  return c.json(updated)
 })
 
 // Packages - Delete
 app.delete('/api/packages/:id', (c) => {
   const id = c.req.param('id')
-  const pkg = packages.get(id)
+  const pkg = packageDb.getById(id)
 
   if (!pkg) {
     return c.json({ error: 'Package not found' }, 404)
   }
 
-  // TODO: Check if package is used by any deck (Ticket 3)
+  // Check if package is used by any deck
+  const deckUsingPackage = deckDb.findByPackage(id)
 
-  packages.delete(id)
+  if (deckUsingPackage) {
+    return c.json({ error: `Package is used by deck: ${deckUsingPackage.name}` }, 400)
+  }
+
+  packageDb.delete(id)
+  return c.json({ success: true })
+})
+
+// Decks - List all
+app.get('/api/decks', (c) => {
+  return c.json(deckDb.getAll())
+})
+
+// Decks - Get one
+app.get('/api/decks/:id', (c) => {
+  const id = c.req.param('id')
+  const deck = deckDb.getById(id)
+  if (!deck) {
+    return c.json({ error: 'Deck not found' }, 404)
+  }
+  return c.json(deck)
+})
+
+// Decks - Create
+app.post('/api/decks', async (c) => {
+  const body = await c.req.json()
+
+  const deck: Deck = {
+    id: `deck_${Date.now()}`,
+    name: body.name || 'Untitled Deck',
+    ink_identity: body.ink_identity,
+    packages: body.packages || [],
+    created_at: new Date().toISOString(),
+  }
+
+  deckDb.create(deck)
+  return c.json(deck, 201)
+})
+
+// Decks - Delete
+app.delete('/api/decks/:id', (c) => {
+  const id = c.req.param('id')
+  const deck = deckDb.getById(id)
+
+  if (!deck) {
+    return c.json({ error: 'Deck not found' }, 404)
+  }
+
+  deckDb.delete(id)
   return c.json({ success: true })
 })
 
@@ -116,7 +161,7 @@ app.get('/api', (c) => {
       health: '/api/health',
       cards: '/api/cards',
       packages: '/api/packages',
-      decks: '/api/decks (Coming in Ticket 3)',
+      decks: '/api/decks',
       builds: '/api/builds (Coming in Ticket 4)',
     },
   })

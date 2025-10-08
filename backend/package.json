@@ -10,9 +10,11 @@
   "dependencies": {
     "@deckscribe/shared": "*",
     "@hono/node-server": "^1.13.7",
+    "better-sqlite3": "^12.4.1",
     "hono": "^4.7.16"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.6.0",
     "tsx": "^4.19.2",
     "typescript": "^5.5.3"
