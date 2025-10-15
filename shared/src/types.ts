@@ -25,7 +25,6 @@ export interface Package {
   name: string; // e.g., "Draw Engine"
   description: string; // e.g., "Reusable draw package"
   cards: string[]; // Lowercased card names: ["tiana - celebrating princess", "goofy - musketeer"]
-  notes: string; // e.g., "Weak vs aggro; iterating"
   isImmutable: boolean; // Once true, cannot be edited
   created_at?: string; // ISO timestamp
 }

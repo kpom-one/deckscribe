@@ -19,25 +19,28 @@
   </nav>
 
   <main class="container split-view">
-    <!-- Sidebar: Selected packages for deck -->
+    <!-- Sidebar: Deck List -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <h3>Selected Packages</h3>
+        <h3>Decks</h3>
       </div>
-      <div id="selected-packages">
-        <p class="empty-state-small">Click packages to select</p>
+
+      <!-- Deck List (Scrollable) -->
+      <div class="sidebar-scroll-content">
+        <div id="deck-list" class="deck-sidebar-list">
+          <p class="loading">Loading decks...</p>
+        </div>
+      </div>
+
+      <!-- Footer with New Deck Input -->
+      <div class="sidebar-footer">
+        <input type="text" id="new-deck-name" placeholder="deck name" class="input-block">
+        <button id="new-deck-btn" class="btn btn-primary btn-block">New Deck</button>
       </div>
     </aside>
 
-    <!-- Main Content: Package List -->
+    <!-- Main Content: All Packages -->
     <div class="main-content">
-      <div class="deck-creation-bar">
-        <input type="text" id="deck-name" placeholder="Deck name" class="deck-name-input">
-        <div class="deck-stats">
-          <span id="deck-card-count">0</span> cards
-        </div>
-        <button id="create-deck-btn" class="btn btn-primary" disabled>Create Deck</button>
-      </div>
       <div id="package-list" class="package-list">
         <p class="loading">Loading packages...</p>
       </div>

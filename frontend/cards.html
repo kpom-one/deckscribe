@@ -19,46 +19,32 @@
   </nav>
 
   <main class="container split-view">
-      <!-- Sidebar: Package Draft -->
+      <!-- Sidebar: Package Editor -->
       <aside class="sidebar package-sidebar">
+        <!-- Format Selector -->
         <div class="format-selector">
           <button id="format-core-btn" class="format-btn active">Core</button>
           <button id="format-infinity-btn" class="format-btn">Infinity</button>
         </div>
 
-        <div class="sidebar-header">
-          <h3>New Package</h3>
-          <button id="save-package-btn" class="btn btn-primary">Save</button>
+        <!-- Package Accordion (Scrollable) -->
+        <div class="sidebar-scroll-content">
+          <div class="package-nav-header">Packages</div>
+          <div id="package-accordion" class="package-accordion">
+            <!-- Package accordion items will be rendered here -->
+          </div>
         </div>
 
-        <!-- Package Form -->
-        <div class="package-form">
-          <input type="text" id="package-name" placeholder="Package name" class="input-block">
-          <input type="text" id="package-description" placeholder="Description" class="input-block">
-          <textarea id="package-notes" rows="2" placeholder="Notes" class="input-block"></textarea>
+        <!-- Fixed Footer with New Package Input -->
+        <div class="sidebar-footer">
+          <input type="text" id="new-package-name" placeholder="package name" class="input-block">
+          <button id="new-package-btn" class="btn btn-primary btn-block">New Package</button>
         </div>
 
-        <div class="card-count"><span id="package-card-count">0</span> cards</div>
-
-        <!-- Ink Colors -->
-        <div class="ink-colors-compact">
-          <img class="ink-icon" data-color="Amber" src="img/amber.png" alt="Amber" title="Amber">
-          <img class="ink-icon" data-color="Amethyst" src="img/amethyst.png" alt="Amethyst" title="Amethyst">
-          <img class="ink-icon" data-color="Emerald" src="img/emerald.png" alt="Emerald" title="Emerald">
-          <img class="ink-icon" data-color="Ruby" src="img/ruby.png" alt="Ruby" title="Ruby">
-          <img class="ink-icon" data-color="Sapphire" src="img/sapphire.png" alt="Sapphire" title="Sapphire">
-          <img class="ink-icon" data-color="Steel" src="img/steel.png" alt="Steel" title="Steel">
-        </div>
-
-        <!-- Draft Cards -->
-        <div id="package-draft-cards" class="draft-cards-sidebar">
-          <p class="empty-state-small">Click cards to add</p>
-        </div>
-
-        <!-- Actions -->
-        <div class="sidebar-actions">
-          <button id="clear-package-btn" class="btn btn-secondary btn-block" style="display: none;">Clear</button>
-        </div>
+        <!-- Hidden fields for description/notes -->
+        <input type="hidden" id="package-name">
+        <input type="hidden" id="package-description">
+        <textarea id="package-notes" style="display: none;"></textarea>
       </aside>
 
       <!-- Main Content: Card Browser -->

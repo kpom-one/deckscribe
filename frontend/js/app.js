@@ -3,7 +3,11 @@ const API_BASE = '/api'
 
 async function apiGet(endpoint) {
   const response = await fetch(`${API_BASE}${endpoint}`)
-  return response.json()
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+  const text = await response.text()
+  return text ? JSON.parse(text) : null
 }
 
 async function apiPost(endpoint, data) {
@@ -12,7 +16,11 @@ async function apiPost(endpoint, data) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   })
-  return response.json()
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+  const text = await response.text()
+  return text ? JSON.parse(text) : null
 }
 
 async function apiPut(endpoint, data = {}) {
@@ -21,14 +29,22 @@ async function apiPut(endpoint, data = {}) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   })
-  return response.json()
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+  const text = await response.text()
+  return text ? JSON.parse(text) : null
 }
 
 async function apiDelete(endpoint) {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     method: 'DELETE'
   })
-  return response.json()
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+  const text = await response.text()
+  return text ? JSON.parse(text) : null
 }
 
 // Global card cache

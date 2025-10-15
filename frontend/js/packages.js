@@ -1,8 +1,9 @@
-// Packages View
+// Packages View - View and edit all packages
 
 let packagesViewInitialized = false
+let allDecks = []
 let allPackages = []
-let selectedPackages = [] // Array of package IDs
+let selectedDeckId = null
 
 // Initialize packages view
 async function initPackagesView() {
@@ -14,23 +15,37 @@ async function initPackagesView() {
     await loadAllCards()
   }
 
+  await loadDecks()
   await loadPackages()
+  renderDeckList()
   renderPackageList()
-  renderSelectedPackages()
 
-  // Set up deck creation
-  const deckNameInput = document.getElementById('deck-name')
-  const createDeckBtn = document.getElementById('create-deck-btn')
+  // Set up new deck button
+  const newDeckBtn = document.getElementById('new-deck-btn')
+  const newDeckInput = document.getElementById('new-deck-name')
 
-  if (deckNameInput) {
-    deckNameInput.addEventListener('input', updateDeckCreationButton)
+  if (newDeckBtn) {
+    newDeckBtn.addEventListener('click', createNewDeck)
   }
 
-  if (createDeckBtn) {
-    createDeckBtn.addEventListener('click', createDeck)
+  // Allow Enter key to create new deck
+  if (newDeckInput) {
+    newDeckInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        createNewDeck()
+      }
+    })
   }
+}
 
-  updateDeckCreationButton()
+// Load decks from API
+async function loadDecks() {
+  try {
+    allDecks = await apiGet('/decks')
+  } catch (error) {
+    console.error('Failed to load decks:', error)
+    allDecks = []
+  }
 }
 
 // Load packages from API
@@ -57,7 +72,89 @@ function getCardImageByName(cardName) {
   return ''
 }
 
-// Render package list
+// Render deck list in sidebar
+function renderDeckList() {
+  const container = document.getElementById('deck-list')
+  if (!container) return
+
+  if (allDecks.length === 0) {
+    container.innerHTML = '<div class="empty-state-small">No decks yet. Create one from the Cards page.</div>'
+    return
+  }
+
+  container.innerHTML = allDecks
+    .map(deck => {
+      const isSelected = selectedDeckId === deck.id
+      const inkIcons = deck.ink_identity.map(color => {
+        return `<img class="ink-icon" src="img/${color.toLowerCase()}.png" alt="${color}" title="${color}">`
+      }).join('')
+
+      return `
+        <div class="deck-sidebar-item ${isSelected ? 'selected' : ''}" onclick="selectDeck('${deck.id}')">
+          <div class="deck-sidebar-name">${deck.name}</div>
+          <div class="deck-sidebar-inks">${inkIcons}</div>
+        </div>
+      `
+    })
+    .join('')
+}
+
+// Select a deck
+function selectDeck(deckId) {
+  if (selectedDeckId === deckId) {
+    selectedDeckId = null
+  } else {
+    selectedDeckId = deckId
+  }
+  renderDeckList()
+  renderPackageList()
+}
+
+// Toggle package in/out of selected deck
+async function togglePackageInDeck(packageId) {
+  if (!selectedDeckId) {
+    return // No deck selected, do nothing
+  }
+
+  const deck = allDecks.find(d => d.id === selectedDeckId)
+  if (!deck) {
+    console.error('Selected deck not found:', selectedDeckId)
+    return
+  }
+
+  const packageIndex = deck.packages.indexOf(packageId)
+
+  if (packageIndex === -1) {
+    // Add package to deck
+    deck.packages.push(packageId)
+  } else {
+    // Remove package from deck
+    deck.packages.splice(packageIndex, 1)
+  }
+
+  // Save to backend
+  try {
+    await apiPut(`/decks/${selectedDeckId}`, {
+      name: deck.name,
+      ink_identity: deck.ink_identity,
+      packages: deck.packages
+    })
+    console.log(`✅ Updated deck "${deck.name}"`)
+    renderPackageList()
+  } catch (error) {
+    console.error('Failed to update deck:', error)
+    alert('Failed to update deck. See console for details.')
+    // Revert the change
+    if (packageIndex === -1) {
+      deck.packages.pop()
+    } else {
+      deck.packages.splice(packageIndex, 0, packageId)
+    }
+    renderPackageList()
+  }
+}
+
+// Render all packages
 function renderPackageList() {
   const container = document.getElementById('package-list')
   if (!container) return
@@ -67,14 +164,33 @@ function renderPackageList() {
     return
   }
 
+  const selectedDeck = selectedDeckId ? allDecks.find(d => d.id === selectedDeckId) : null
+
   container.innerHTML = allPackages
     .map(pkg => {
-      const isSelected = selectedPackages.includes(pkg.id)
+      const isInDeck = selectedDeck && selectedDeck.packages.includes(pkg.id)
       return `
-        <div class="package-row ${isSelected ? 'selected' : ''}" onclick="togglePackageSelection('${pkg.id}')">
+        <div class="package-row ${isInDeck ? 'selected' : ''}" data-package-id="${pkg.id}" onclick="togglePackageInDeck('${pkg.id}')">
           <div class="package-info">
-            <h3 class="package-name">${pkg.name}</h3>
-            <p class="package-description">${pkg.description || ''}</p>
+            <input
+              type="text"
+              class="package-name-inline"
+              value="${pkg.name}"
+              data-package-id="${pkg.id}"
+              onblur="savePackageName('${pkg.id}', this.value)"
+              onkeypress="if(event.key==='Enter') this.blur()"
+              onclick="event.stopPropagation()"
+            />
+            <input
+              type="text"
+              class="package-description-inline"
+              value="${pkg.description || ''}"
+              placeholder="Add description..."
+              data-package-id="${pkg.id}"
+              onblur="savePackageDescription('${pkg.id}', this.value)"
+              onkeypress="if(event.key==='Enter') this.blur()"
+              onclick="event.stopPropagation()"
+            />
           </div>
           <div class="package-cards">
             ${renderPackageCards(pkg)}
@@ -83,23 +199,6 @@ function renderPackageList() {
       `
     })
     .join('')
-}
-
-// Toggle package selection
-function togglePackageSelection(packageId) {
-  const index = selectedPackages.indexOf(packageId)
-
-  if (index === -1) {
-    // Add package
-    selectedPackages.push(packageId)
-  } else {
-    // Remove package
-    selectedPackages.splice(index, 1)
-  }
-
-  renderPackageList()
-  renderSelectedPackages()
-  updateDeckCreationButton()
 }
 
 // Render cards for a package (horizontal)
@@ -123,165 +222,127 @@ function renderPackageCards(pkg) {
     .join('')
 }
 
-// Render selected packages in sidebar
-function renderSelectedPackages() {
-  const container = document.getElementById('selected-packages')
-  if (!container) return
+// Validate package name
+function validatePackageName(name) {
+  return name && /^[a-z0-9-]+$/.test(name)
+}
 
-  if (selectedPackages.length === 0) {
-    container.innerHTML = '<p class="empty-state-small">Click packages to select</p>'
+// Save package name
+async function savePackageName(packageId, newName) {
+  const trimmedName = newName.trim().toLowerCase()
+
+  // Get current package
+  const pkg = allPackages.find(p => p.id === packageId)
+  if (!pkg) {
+    console.error('Package not found:', packageId)
     return
   }
 
-  const selectedPkgs = allPackages.filter(pkg => selectedPackages.includes(pkg.id))
-
-  container.innerHTML = selectedPkgs
-    .map(pkg => {
-      return `
-        <div class="selected-package-item">
-          <div class="selected-package-header">
-            <strong>${pkg.name}</strong>
-            <button class="remove-btn" onclick="togglePackageSelection('${pkg.id}')">×</button>
-          </div>
-          <div class="selected-package-cards">
-            ${renderSelectedPackageCards(pkg)}
-          </div>
-        </div>
-      `
-    })
-    .join('')
-}
-
-// Render cards for selected package (smaller)
-function renderSelectedPackageCards(pkg) {
-  if (!pkg.cards || pkg.cards.length === 0) {
-    return '<p class="empty-state-small">No cards</p>'
-  }
-
-  return `<div class="selected-cards-grid">${pkg.cards
-    .map(cardName => {
-      const imageSrc = getCardImageByName(cardName)
-      return `
-        <div class="selected-card-mini">
-          ${imageSrc
-            ? `<img src="${imageSrc}" alt="${cardName}" class="selected-card-mini-image">`
-            : `<div class="selected-card-mini-placeholder">${cardName}</div>`
-          }
-        </div>
-      `
-    })
-    .join('')}</div>`
-}
-
-// Count total cards across selected packages
-function getTotalCardCount() {
-  const selectedPkgs = allPackages.filter(pkg => selectedPackages.includes(pkg.id))
-  let total = 0
-
-  selectedPkgs.forEach(pkg => {
-    if (pkg.cards && Array.isArray(pkg.cards)) {
-      total += pkg.cards.length
-    }
-  })
-
-  return total
-}
-
-// Validate deck name (just needs to be non-empty)
-function isValidDeckName(name) {
-  return name && name.trim().length > 0
-}
-
-// Update deck creation button state
-function updateDeckCreationButton() {
-  const deckNameInput = document.getElementById('deck-name')
-  const createDeckBtn = document.getElementById('create-deck-btn')
-  const cardCountEl = document.getElementById('deck-card-count')
-
-  if (!deckNameInput || !createDeckBtn || !cardCountEl) return
-
-  const deckName = deckNameInput.value
-  const totalCards = getTotalCardCount()
-
-  // Update card count display
-  cardCountEl.textContent = totalCards
-
-  // Validation: name must be valid AND at least 15 cards
-  const isNameValid = isValidDeckName(deckName)
-  const hasEnoughCards = totalCards >= 15
-
-  createDeckBtn.disabled = !(isNameValid && hasEnoughCards)
-}
-
-// Get ink colors from selected packages
-function getInkIdentity() {
-  const selectedPkgs = allPackages.filter(pkg => selectedPackages.includes(pkg.id))
-  const colors = new Set()
-
-  selectedPkgs.forEach(pkg => {
-    if (pkg.cards && Array.isArray(pkg.cards)) {
-      pkg.cards.forEach(cardName => {
-        const card = allCardsCache.find(c => {
-          const fullName = c.version ? `${c.name} - ${c.version}`.toLowerCase() : c.name.toLowerCase()
-          return fullName === cardName.toLowerCase()
-        })
-
-        if (card) {
-          const cardInks = card.inks || (card.ink ? [card.ink] : [])
-          cardInks.forEach(ink => colors.add(ink))
-        }
-      })
-    }
-  })
-
-  return Array.from(colors)
-}
-
-// Create deck
-async function createDeck() {
-  const deckNameInput = document.getElementById('deck-name')
-  if (!deckNameInput) return
-
-  const deckName = deckNameInput.value.trim()
-  const totalCards = getTotalCardCount()
-
-  // Final validation
-  if (!isValidDeckName(deckName)) {
-    alert('Deck name is required')
+  // Check if name changed
+  if (trimmedName === pkg.name) {
     return
   }
 
-  if (totalCards < 15) {
-    alert('Deck must contain at least 15 cards')
-    return
-  }
-
-  // Get ink identity
-  const inkColors = getInkIdentity()
-
-  if (inkColors.length !== 2) {
-    alert(`Deck must have exactly 2 ink colors. Current deck has ${inkColors.length} colors: ${inkColors.join(', ')}`)
+  // Validate name
+  if (!validatePackageName(trimmedName)) {
+    alert('Package name must contain only lowercase letters, numbers, and dashes (a-z, 0-9, -)')
+    // Revert input to original value
+    const input = document.querySelector(`.package-name-inline[data-package-id="${packageId}"]`)
+    if (input) input.value = pkg.name
     return
   }
 
   try {
-    const deck = await apiPost('/decks', {
-      name: deckName,
-      ink_identity: inkColors,
-      packages: selectedPackages
+    await apiPut(`/packages/${packageId}`, {
+      name: trimmedName,
+      description: pkg.description,
+      cards: pkg.cards
     })
 
-    alert(`✅ Deck "${deckName}" created successfully!`)
+    // Update local cache
+    pkg.name = trimmedName
+    console.log(`✅ Updated package name to "${trimmedName}"`)
+  } catch (error) {
+    console.error('Failed to update package name:', error)
+    alert('Failed to update package name. See console for details.')
+    // Revert input to original value
+    const input = document.querySelector(`.package-name-inline[data-package-id="${packageId}"]`)
+    if (input) input.value = pkg.name
+  }
+}
 
-    // Reset form
-    deckNameInput.value = ''
-    selectedPackages = []
+// Save package description
+async function savePackageDescription(packageId, newDescription) {
+  const trimmedDescription = newDescription.trim()
+
+  // Get current package
+  const pkg = allPackages.find(p => p.id === packageId)
+  if (!pkg) {
+    console.error('Package not found:', packageId)
+    return
+  }
+
+  // Check if description changed
+  if (trimmedDescription === (pkg.description || '')) {
+    return
+  }
+
+  try {
+    await apiPut(`/packages/${packageId}`, {
+      name: pkg.name,
+      description: trimmedDescription,
+      cards: pkg.cards
+    })
+
+    // Update local cache
+    pkg.description = trimmedDescription
+    console.log(`✅ Updated package description for "${pkg.name}"`)
+  } catch (error) {
+    console.error('Failed to update package description:', error)
+    alert('Failed to update package description. See console for details.')
+  }
+}
+
+// Validate deck name
+function validateDeckName(name) {
+  return name && /^[a-z0-9-]+$/.test(name)
+}
+
+// Create new deck
+async function createNewDeck() {
+  const newDeckInput = document.getElementById('new-deck-name')
+  const deckName = newDeckInput ? newDeckInput.value.trim().toLowerCase() : ''
+
+  if (!deckName) {
+    alert('Please enter a deck name')
+    return
+  }
+
+  if (!validateDeckName(deckName)) {
+    alert('Deck name must contain only lowercase letters, numbers, and dashes (a-z, 0-9, -)')
+    return
+  }
+
+  try {
+    const newDeck = await apiPost('/decks', {
+      name: deckName,
+      ink_identity: [], // Empty initially, will be inferred from packages
+      packages: []
+    })
+
+    console.log(`✅ Created deck "${newDeck.name}"`)
+
+    // Clear input
+    if (newDeckInput) newDeckInput.value = ''
+
+    // Add to local array and select it
+    allDecks.push(newDeck)
+    selectedDeckId = newDeck.id
+
+    renderDeckList()
     renderPackageList()
-    renderSelectedPackages()
-    updateDeckCreationButton()
-
   } catch (error) {
     console.error('Failed to create deck:', error)
-    alert('❌ Failed to create deck. See console for details.')
+    alert('Failed to create deck. See console for details.')
   }
 }

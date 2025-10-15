@@ -1,10 +1,10 @@
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
-import type { Package, Deck } from '@deckscribe/shared'
+import type { Package, Deck, Build } from '@deckscribe/shared'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { packageDb, deckDb } from './db'
+import { packageDb, deckDb, buildDb } from './db'
 
 const app = new Hono()
 
@@ -66,8 +66,7 @@ app.post('/api/packages', async (c) => {
     name: body.name || 'Untitled Package',
     description: body.description || '',
     cards: (body.cards || []).map((card: string) => card.toLowerCase()),
-    notes: body.notes || '',
-    isImmutable: false,
+    isImmutable: false, // Packages are mutable by design
     created_at: new Date().toISOString(),
   }
 
@@ -75,8 +74,8 @@ app.post('/api/packages', async (c) => {
   return c.json(pkg, 201)
 })
 
-// Packages - Finalize (make immutable)
-app.put('/api/packages/:id/finalize', (c) => {
+// Packages - Update
+app.put('/api/packages/:id', async (c) => {
   const id = c.req.param('id')
   const pkg = packageDb.getById(id)
 
@@ -84,7 +83,14 @@ app.put('/api/packages/:id/finalize', (c) => {
     return c.json({ error: 'Package not found' }, 404)
   }
 
-  const updated = packageDb.update(id, { isImmutable: true })
+  const body = await c.req.json()
+
+  const updates: Partial<Package> = {}
+  if (body.name !== undefined) updates.name = body.name
+  if (body.description !== undefined) updates.description = body.description
+  if (body.cards !== undefined) updates.cards = body.cards.map((card: string) => card.toLowerCase())
+
+  const updated = packageDb.update(id, updates)
   return c.json(updated)
 })
 
@@ -139,6 +145,26 @@ app.post('/api/decks', async (c) => {
   return c.json(deck, 201)
 })
 
+// Decks - Update
+app.put('/api/decks/:id', async (c) => {
+  const id = c.req.param('id')
+  const deck = deckDb.getById(id)
+
+  if (!deck) {
+    return c.json({ error: 'Deck not found' }, 404)
+  }
+
+  const body = await c.req.json()
+
+  const updates: Partial<Deck> = {}
+  if (body.name !== undefined) updates.name = body.name
+  if (body.ink_identity !== undefined) updates.ink_identity = body.ink_identity
+  if (body.packages !== undefined) updates.packages = body.packages
+
+  const updated = deckDb.update(id, updates)
+  return c.json(updated)
+})
+
 // Decks - Delete
 app.delete('/api/decks/:id', (c) => {
   const id = c.req.param('id')
@@ -152,6 +178,72 @@ app.delete('/api/decks/:id', (c) => {
   return c.json({ success: true })
 })
 
+// Builds - List all for a deck
+app.get('/api/decks/:deckId/builds', (c) => {
+  const deckId = c.req.param('deckId')
+  const deck = deckDb.getById(deckId)
+
+  if (!deck) {
+    return c.json({ error: 'Deck not found' }, 404)
+  }
+
+  const builds = buildDb.getAllByDeck(deckId)
+  return c.json(builds)
+})
+
+// Builds - Get one
+app.get('/api/builds/:id', (c) => {
+  const id = c.req.param('id')
+  const build = buildDb.getById(id)
+
+  if (!build) {
+    return c.json({ error: 'Build not found' }, 404)
+  }
+
+  return c.json(build)
+})
+
+// Builds - Create
+app.post('/api/decks/:deckId/builds', async (c) => {
+  const deckId = c.req.param('deckId')
+  const deck = deckDb.getById(deckId)
+
+  if (!deck) {
+    return c.json({ error: 'Deck not found' }, 404)
+  }
+
+  const body = await c.req.json()
+
+  // Get next version number
+  const version = buildDb.getNextVersion(deckId)
+  const versionName = `v${version}`
+
+  const build: Build = {
+    id: `build_${Date.now()}`,
+    deck_id: deckId,
+    name: versionName,
+    card_counts: body.card_counts || {},
+    notes: body.notes || '',
+    created_at: new Date().toISOString(),
+  }
+
+  buildDb.create(build)
+  return c.json(build, 201)
+})
+
+// Builds - Delete
+app.delete('/api/builds/:id', (c) => {
+  const id = c.req.param('id')
+  const build = buildDb.getById(id)
+
+  if (!build) {
+    return c.json({ error: 'Build not found' }, 404)
+  }
+
+  buildDb.delete(id)
+  return c.json({ success: true })
+})
+
 // API info
 app.get('/api', (c) => {
   return c.json({
@@ -162,7 +254,7 @@ app.get('/api', (c) => {
       cards: '/api/cards',
       packages: '/api/packages',
       decks: '/api/decks',
-      builds: '/api/builds (Coming in Ticket 4)',
+      builds: '/api/decks/:deckId/builds, /api/builds/:id',
     },
   })
 })

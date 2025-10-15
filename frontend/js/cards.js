@@ -1,12 +1,11 @@
-// Cards & Package Creation
-// Sidebar layout: Package draft (left) + Card browser (right)
+// Cards & Package Creation with Accordion
+// Sidebar layout: Package accordion (left) + Card browser (right)
 
-let packageDraft = {
-  cards: [] // Array of card objects { name, image, colors: [] }
-}
-
+let openPackages = [] // Array of package objects from backend
 let selectedFormat = 'core' // Default to core
 let cardsViewInitialized = false
+let pinnedPackageIds = new Set() // Client-side state for pinned packages
+let visibleCardNames = new Set() // Track currently visible cards in browser
 
 // Initialize cards view
 async function initCardsView() {
@@ -21,7 +20,11 @@ async function initCardsView() {
     await loadAllCards()
   }
 
-  renderPackageDraft()
+  // Load packages from backend
+  await loadPackagesFromBackend()
+
+  // Render accordion
+  renderPackageAccordion()
 
   // Set up query input (only filter on space)
   const queryInput = document.getElementById('card-query')
@@ -50,15 +53,21 @@ async function initCardsView() {
     renderCardBrowser()
   }
 
-  // Set up buttons
-  const clearBtn = document.getElementById('clear-package-btn')
-  const saveBtn = document.getElementById('save-package-btn')
+  // Set up new package button
+  const newPackageBtn = document.getElementById('new-package-btn')
+  const newPackageInput = document.getElementById('new-package-name')
 
-  if (clearBtn) {
-    clearBtn.addEventListener('click', clearPackageDraft)
+  if (newPackageBtn) {
+    newPackageBtn.addEventListener('click', createNewPackage)
   }
-  if (saveBtn) {
-    saveBtn.addEventListener('click', savePackage)
+
+  // Allow Enter key to create new package
+  if (newPackageInput) {
+    newPackageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        createNewPackage()
+      }
+    })
   }
 
   // Set up format selector
@@ -251,65 +260,311 @@ function getCardColors(card) {
   return []
 }
 
-// Render package draft panel
-function renderPackageDraft() {
-  const container = document.getElementById('package-draft-cards')
-  const countEl = document.getElementById('package-card-count')
-  const clearBtn = document.getElementById('clear-package-btn')
-
-  if (!container || !countEl) return
-
-  // Update count
-  countEl.textContent = packageDraft.cards.length
-
-  // Update ink color indicators
-  updateInkIndicators()
-
-  // Show/hide clear button
-  if (packageDraft.cards.length > 0) {
-    if (clearBtn) clearBtn.style.display = 'inline-block'
-  } else {
-    if (clearBtn) clearBtn.style.display = 'none'
+// Load packages from backend
+async function loadPackagesFromBackend() {
+  try {
+    const packages = await apiGet('/packages')
+    openPackages = packages.map(pkg => ({
+      ...pkg,
+      // Hydrate card names into full objects with images/colors
+      cards: pkg.cards.map(cardName => {
+        const fullCard = allCardsCache.find(c => getCardFullName(c) === cardName.toLowerCase())
+        if (fullCard) {
+          return {
+            name: cardName.toLowerCase(),
+            image: getCardImage(fullCard),
+            colors: getCardColors(fullCard)
+          }
+        }
+        // Card not found in cache, store as minimal object
+        return {
+          name: cardName.toLowerCase(),
+          image: '',
+          colors: []
+        }
+      }),
+      isExpanded: false // UI state only, don't persist
+    }))
+    console.log(`✅ Loaded ${openPackages.length} packages from backend`)
+  } catch (error) {
+    console.error('Failed to load packages:', error)
+    openPackages = []
   }
+}
 
-  // Render cards as images
-  if (packageDraft.cards.length === 0) {
-    container.innerHTML = '<p class="empty-state-small">Click cards to add</p>'
+// Create new package
+async function createNewPackage() {
+  const newPackageInput = document.getElementById('new-package-name')
+  const userProvidedName = newPackageInput ? newPackageInput.value.trim().toLowerCase() : ''
+
+  if (!userProvidedName) {
+    alert('Please enter a package name')
     return
   }
 
-  container.innerHTML = packageDraft.cards
-    .map(card => {
-      const imageSrc = card.image || ''
+  if (!validatePackageName(userProvidedName)) {
+    alert('Package name must contain only lowercase letters, numbers, and dashes (a-z, 0-9, -)')
+    return
+  }
+
+  try {
+    // Create on backend immediately
+    const newPkg = await apiPost('/packages', {
+      name: userProvidedName,
+      description: '',
+      cards: []
+    })
+
+    console.log(`✅ Created package "${newPkg.name}" (${newPkg.id})`)
+
+    // Add to local array with UI state
+    openPackages.push({
+      ...newPkg,
+      isExpanded: true
+    })
+
+    // Clear input
+    if (newPackageInput) newPackageInput.value = ''
+
+    renderPackageAccordion()
+
+    // Re-render card browser to update selected state
+    const queryInput = document.getElementById('card-query')
+    renderCardBrowser(queryInput ? queryInput.value : '')
+  } catch (error) {
+    console.error('Failed to create package:', error)
+    alert('Failed to create package. Check console for details.')
+  }
+}
+
+// Toggle package expanded state (only one can be expanded at a time)
+function togglePackageExpanded(index) {
+  if (index < 0 || index >= openPackages.length) return
+
+  const wasExpanded = openPackages[index].isExpanded
+
+  // Collapse all packages
+  openPackages.forEach(pkg => pkg.isExpanded = false)
+
+  // Toggle this package
+  openPackages[index].isExpanded = !wasExpanded
+
+  renderPackageAccordion()
+
+  // Re-render card browser to update selected state
+  const queryInput = document.getElementById('card-query')
+  renderCardBrowser(queryInput ? queryInput.value : '')
+}
+
+// Close (delete) package
+async function closePackage(index) {
+  if (index < 0 || index >= openPackages.length) return
+
+  const pkg = openPackages[index]
+  if (!confirm(`Delete package "${pkg.name}"? This cannot be undone.`)) {
+    return
+  }
+
+  try {
+    // Delete from backend
+    await apiDelete(`/packages/${pkg.id}`)
+    console.log(`✅ Deleted package "${pkg.name}" (${pkg.id})`)
+
+    // Remove from local array
+    openPackages.splice(index, 1)
+    renderPackageAccordion()
+
+    // Re-render card browser to update selected state
+    const queryInput = document.getElementById('card-query')
+    renderCardBrowser(queryInput ? queryInput.value : '')
+  } catch (error) {
+    console.error('Failed to delete package:', error)
+    alert('Failed to delete package. Check console for details.')
+  }
+}
+
+// Get colors from package cards
+function getPackageColors(pkg) {
+  const colors = new Set()
+  pkg.cards.forEach(card => {
+    if (card.colors && Array.isArray(card.colors)) {
+      card.colors.forEach(c => colors.add(c))
+    }
+  })
+  return Array.from(colors).sort()
+}
+
+// Toggle pin for a package
+function togglePackagePin(index, event) {
+  event.stopPropagation()
+  const pkg = openPackages[index]
+  if (!pkg) return
+
+  if (pinnedPackageIds.has(pkg.id)) {
+    pinnedPackageIds.delete(pkg.id)
+  } else {
+    pinnedPackageIds.add(pkg.id)
+  }
+  renderPackageAccordion()
+}
+
+// Check if package should be visible based on card filter
+function isPackageVisible(pkg) {
+  // Pinned packages are always visible
+  if (pinnedPackageIds.has(pkg.id)) {
+    return true
+  }
+
+  // If no cards are in browser, show all packages
+  if (visibleCardNames.size === 0) {
+    return true
+  }
+
+  // Package is visible if it has at least one card that's currently visible
+  return pkg.cards.some(card => visibleCardNames.has(card.name))
+}
+
+// Render package accordion
+function renderPackageAccordion() {
+  const container = document.getElementById('package-accordion')
+  if (!container) return
+
+  if (openPackages.length === 0) {
+    container.innerHTML = '<div class="package-accordion-empty">No packages yet. Create one below.</div>'
+    return
+  }
+
+  // Separate pinned and unpinned packages
+  const pinnedPackages = []
+  const unpinnedPackages = []
+
+  openPackages.forEach((pkg, index) => {
+    const isPinned = pinnedPackageIds.has(pkg.id)
+    const isVisible = isPackageVisible(pkg)
+
+    if (!isVisible && !isPinned) return // Skip invisible, unpinned packages
+
+    const packageData = { pkg, index, isPinned }
+    if (isPinned) {
+      pinnedPackages.push(packageData)
+    } else {
+      unpinnedPackages.push(packageData)
+    }
+  })
+
+  const packagesToRender = [...pinnedPackages, ...unpinnedPackages]
+
+  if (packagesToRender.length === 0) {
+    container.innerHTML = '<div class="package-accordion-empty">No packages match current filter.</div>'
+    return
+  }
+
+  container.innerHTML = packagesToRender
+    .map(({ pkg, index, isPinned }) => {
+      const isExpanded = pkg.isExpanded
+      const displayName = pkg.name || 'Untitled'
+      const colors = getPackageColors(pkg)
+
+      // Render ink icons
+      const inkIcons = colors.map(color => {
+        return `<img class="ink-icon" data-color="${color}" src="img/${color.toLowerCase()}.png" alt="${color}" title="${color}">`
+      }).join('')
+
+      // Render cards
+      let cardsHTML = ''
+      if (pkg.cards.length === 0) {
+        cardsHTML = '<div class="package-accordion-empty">Click cards to add</div>'
+      } else {
+        cardsHTML = `
+          <div class="package-accordion-cards">
+            ${pkg.cards.map(card => {
+              const imageSrc = card.image || ''
+              return `
+                <div class="package-accordion-card" onclick="removeCardFromPackage('${card.name.replace(/'/g, "\\'")}', ${index})">
+                  ${imageSrc ? `<img src="${imageSrc}" alt="${card.name}" onerror="this.style.display='none'">` : `<div class="no-image">${card.name}</div>`}
+                  <div class="remove-overlay">×</div>
+                </div>
+              `
+            }).join('')}
+          </div>
+        `
+      }
+
       return `
-        <div class="draft-card-image" onclick="removeCardFromDraft('${card.name.replace(/'/g, "\\'")}')">
-          ${imageSrc ? `<img src="${imageSrc}" alt="${card.name}" onerror="this.style.display='none'">` : `<div class="no-image">${card.name}</div>`}
-          <div class="remove-overlay">×</div>
+        <div class="package-accordion-item ${isPinned ? 'pinned' : ''}">
+          <div class="package-accordion-header ${isExpanded ? 'expanded' : ''}" onclick="togglePackageExpanded(${index})">
+            <div class="package-accordion-title">
+              <span class="package-accordion-chevron">▸</span>
+              <button
+                class="pin-btn ${isPinned ? 'active' : ''}"
+                onclick="togglePackagePin(${index}, event)"
+                title="${isPinned ? 'Unpin package' : 'Pin package'}"
+              >
+                ${isPinned ? '★' : '☆'}
+              </button>
+              ${displayName}
+            </div>
+            <div class="package-accordion-actions">
+              <button class="package-accordion-close" onclick="event.stopPropagation(); closePackage(${index})" title="Close">×</button>
+            </div>
+          </div>
+          <div class="package-accordion-content ${isExpanded ? 'expanded' : ''}">
+            <div class="package-accordion-meta">
+              <div class="package-accordion-count"><span>${pkg.cards.length}</span> cards</div>
+              <div class="package-accordion-inks">${inkIcons || '<span style="font-size: 0.85rem; color: #9ca3af;">No colors yet</span>'}</div>
+            </div>
+            ${cardsHTML}
+          </div>
         </div>
       `
     })
     .join('')
 }
 
-// Update ink indicators (display only - read from cards)
-function updateInkIndicators() {
-  // Get colors from selected cards
-  const colors = new Set()
-  packageDraft.cards.forEach(card => {
-    if (card.colors && Array.isArray(card.colors)) {
-      card.colors.forEach(c => colors.add(c))
-    }
-  })
+// Save package to backend
+async function savePackage(pkg) {
+  try {
+    // Filter out any invalid cards and extract names
+    const cardNames = pkg.cards
+      .filter(c => c && c.name)
+      .map(c => c.name)
 
-  // Update UI (display only, not clickable)
-  document.querySelectorAll('.ink-icon').forEach(icon => {
-    const color = icon.getAttribute('data-color')
-    if (colors.has(color)) {
-      icon.classList.add('active')
-    } else {
-      icon.classList.remove('active')
-    }
-  })
+    await apiPut(`/packages/${pkg.id}`, {
+      name: pkg.name,
+      description: pkg.description || '',
+      cards: cardNames
+    })
+    console.log(`✅ Saved package "${pkg.name}" (${pkg.id})`)
+  } catch (error) {
+    console.error(`❌ Failed to save package "${pkg.name}":`, error)
+    throw error
+  }
+}
+
+// Validate package name
+function validatePackageName(name) {
+  // Must be non-empty lowercase alphanumeric and dashes
+  return name && /^[a-z0-9-]+$/.test(name)
+}
+
+// Remove card from package
+async function removeCardFromPackage(cardName, packageIndex) {
+  if (packageIndex < 0 || packageIndex >= openPackages.length) return
+
+  const pkg = openPackages[packageIndex]
+  const index = pkg.cards.findIndex(c => c.name === cardName)
+  if (index !== -1) {
+    pkg.cards.splice(index, 1)
+  }
+
+  renderPackageAccordion()
+
+  // Save to backend immediately
+  await savePackage(pkg)
+
+  // Re-render card browser to update selected state
+  const queryInput = document.getElementById('card-query')
+  renderCardBrowser(queryInput ? queryInput.value : '')
 }
 
 // Render card browser
@@ -370,6 +625,15 @@ function renderCardBrowser(queryText = '') {
   // Sort cards
   cardsToShow = sortCards(cardsToShow, sortBy, reverse)
 
+  // Update visible cards set for package filtering
+  visibleCardNames.clear()
+  cardsToShow.forEach(card => {
+    visibleCardNames.add(getCardFullName(card))
+  })
+
+  // Update package accordion based on visible cards
+  renderPackageAccordion()
+
   if (cardsToShow.length === 0) {
     container.innerHTML = '<p class="empty-state">No cards found</p>'
     return
@@ -379,22 +643,38 @@ function renderCardBrowser(queryText = '') {
     .map(card => {
       const fullName = getCardFullName(card)
       const displayHTML = getCardDisplayHTML(card)
-      const isInDraft = packageDraft.cards.some(c => c.name === fullName)
+
+      // Check if card is in the currently expanded package
+      let isInPackage = false
+      const expandedPkg = openPackages.find(pkg => pkg.isExpanded)
+      if (expandedPkg) {
+        isInPackage = expandedPkg.cards.some(c => c.name === fullName)
+      }
+
       const imageSrc = getCardImage(card)
       return `
-        <div class="card-item ${isInDraft ? 'selected' : ''}" onclick="toggleCardInDraft('${fullName.replace(/'/g, "\\'")}')">
+        <div class="card-item ${isInPackage ? 'selected' : ''}" onclick="toggleCardInPackage('${fullName.replace(/'/g, "\\'")}')">
           ${imageSrc ? `<img src="${imageSrc}" alt="${fullName}" class="card-image" onerror="this.style.display='none'">` : ''}
           <div class="card-name">${displayHTML}</div>
-          ${isInDraft ? '<div class="selected-badge">✓</div>' : ''}
+          ${isInPackage ? '<div class="selected-badge">✓</div>' : ''}
         </div>
       `
     })
     .join('')
 }
 
-// Toggle card in draft
-function toggleCardInDraft(cardName) {
-  const index = packageDraft.cards.findIndex(c => c.name === cardName)
+// Toggle card in package (adds to first expanded package)
+async function toggleCardInPackage(cardName) {
+  // Find first expanded package
+  const expandedIndex = openPackages.findIndex(pkg => pkg.isExpanded)
+
+  if (expandedIndex === -1) {
+    alert('Please expand a package first (click on a package name)')
+    return
+  }
+
+  const pkg = openPackages[expandedIndex]
+  const index = pkg.cards.findIndex(c => c.name === cardName)
 
   if (index === -1) {
     // Adding card - find the full card object
@@ -407,112 +687,24 @@ function toggleCardInDraft(cardName) {
     const cardColors = getCardColors(fullCard)
     const imageSrc = getCardImage(fullCard)
 
-    packageDraft.cards.push({
+    pkg.cards.push({
       name: cardName,
       image: imageSrc,
       colors: cardColors
     })
+
+    renderPackageAccordion()
+
+    // Save to backend immediately
+    await savePackage(pkg)
   } else {
-    // Removing card
-    packageDraft.cards.splice(index, 1)
+    // Card already in this package, remove it
+    await removeCardFromPackage(cardName, expandedIndex)
   }
-
-  renderPackageDraft()
 
   // Re-render card browser to update selected state
   const queryInput = document.getElementById('card-query')
   renderCardBrowser(queryInput ? queryInput.value : '')
-}
-
-// Remove card from draft
-function removeCardFromDraft(cardName) {
-  const index = packageDraft.cards.findIndex(c => c.name === cardName)
-  if (index !== -1) {
-    packageDraft.cards.splice(index, 1)
-  }
-
-  renderPackageDraft()
-
-  // Re-render card browser to update selected state
-  const queryInput = document.getElementById('card-query')
-  renderCardBrowser(queryInput ? queryInput.value : '')
-}
-
-// Save package
-async function savePackage() {
-  const nameInput = document.getElementById('package-name')
-  const descInput = document.getElementById('package-description')
-  const notesInput = document.getElementById('package-notes')
-
-  const name = nameInput ? nameInput.value.trim() : ''
-  const description = descInput ? descInput.value.trim() : ''
-  const notes = notesInput ? notesInput.value.trim() : ''
-
-  // Validate
-  if (!name) {
-    alert('Package name is required')
-    if (nameInput) nameInput.focus()
-    return
-  }
-
-  if (packageDraft.cards.length === 0) {
-    alert('Package must contain at least one card')
-    return
-  }
-
-  // Validate 2-color rule
-  const colors = new Set()
-  packageDraft.cards.forEach(card => {
-    card.colors.forEach(c => colors.add(c))
-  })
-
-  if (colors.size > 2) {
-    alert(`Package has ${colors.size} colors: ${Array.from(colors).join(', ')}. Maximum is 2.`)
-    return
-  }
-
-  try {
-    // Create package
-    const pkg = await apiPost('/packages', {
-      name,
-      description,
-      cards: packageDraft.cards.map(c => c.name),
-      notes
-    })
-
-    // Finalize (make immutable)
-    await apiPut(`/packages/${pkg.id}/finalize`)
-
-    alert(`Package "${name}" created successfully!`)
-
-    // Reset everything
-    clearPackageDraft()
-  } catch (error) {
-    console.error('Failed to save package:', error)
-    alert('Failed to save package. See console for details.')
-  }
-}
-
-// Clear package draft
-function clearPackageDraft() {
-  packageDraft.cards = []
-
-  const nameInput = document.getElementById('package-name')
-  const descInput = document.getElementById('package-description')
-  const notesInput = document.getElementById('package-notes')
-  const queryInput = document.getElementById('card-query')
-
-  if (nameInput) nameInput.value = ''
-  if (descInput) descInput.value = ''
-  if (notesInput) notesInput.value = ''
-  if (queryInput) queryInput.value = ''
-
-  renderPackageDraft()
-
-  // Re-render card browser with empty query
-  renderCardBrowser('')
-  updateFilterButtonStates('')
-  updateUrlQuery('')
 }
 
 // Toggle filter in query

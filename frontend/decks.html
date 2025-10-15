@@ -19,10 +19,25 @@
   </nav>
 
   <main class="container">
-    <div class="hero">
+    <div class="page-header">
       <h2>Decks</h2>
-      <p>Coming in Ticket 4...</p>
+      <p>Your collection of decks</p>
+    </div>
+
+    <div id="deck-list" class="deck-list">
+      <p class="empty-state">Loading decks...</p>
     </div>
   </main>
+
+  <script src="js/app.js"></script>
+  <script src="js/decks.js"></script>
+  <script>
+    // Initialize view on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initDecksView)
+    } else {
+      initDecksView()
+    }
+  </script>
 </body>
 </html>
