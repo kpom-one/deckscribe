@@ -46,14 +46,20 @@ The long-term goal is to build a **deckbuilding ecosystem**, not just a tool.
 
 1. Create a **package**:  
    → Add cards that represent an idea (e.g. discard engine, draw core)
+   <img width="1358" height="808" alt="image" src="https://github.com/user-attachments/assets/26477aab-f83e-49b8-84dc-a60da0a34b67" />
 
-2. Create a **deck**:  
-   → Import one or more packages and choose your inks
 
-3. Save a **build**:  
+3. Create a **deck**:  
+   → Import one or more packages
+   <img width="1334" height="790" alt="image" src="https://github.com/user-attachments/assets/61a26c67-d3df-4241-9c16-368eb276cbc2" />
+
+
+4. Save a **build**:  
    → Add exact counts and snapshot the version you want to test
+   <img width="1334" height="790" alt="image" src="https://github.com/user-attachments/assets/4e84ab31-a397-4716-b46f-4b48bb2a3e91" />
 
-4. Make changes, save another build, compare
+
+6. Make changes, save another build, compare
 
 ---
 
