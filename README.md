@@ -56,7 +56,8 @@ The long-term goal is to build a **deckbuilding ecosystem**, not just a tool.
 
 4. Save a **build**:  
    → Add exact counts and snapshot the version you want to test
-   <img width="1334" height="790" alt="image" src="https://github.com/user-attachments/assets/4e84ab31-a397-4716-b46f-4b48bb2a3e91" />
+   <img width="1315" height="745" alt="image" src="https://github.com/user-attachments/assets/c6f7ab1e-16f4-424c-9574-68f06d7b79cd" />
+
 
 
 6. Make changes, save another build, compare
