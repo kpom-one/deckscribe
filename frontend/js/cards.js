@@ -4,8 +4,7 @@
 let openPackages = [] // Array of package objects from backend
 let selectedFormat = 'core' // Default to core
 let cardsViewInitialized = false
-let pinnedPackageIds = new Set() // Client-side state for pinned packages
-let visibleCardNames = new Set() // Track currently visible cards in browser
+let selectedColors = [] // Array of selected color filters (max 2), NOT in query string
 
 // Initialize cards view
 async function initCardsView() {
@@ -94,6 +93,15 @@ async function initCardsView() {
     })
   }
 
+  // Set up color filter icons
+  const colorFilterIcons = document.querySelectorAll('.color-filter-icon')
+  colorFilterIcons.forEach(icon => {
+    icon.addEventListener('click', () => {
+      const color = icon.getAttribute('data-color')
+      toggleColorFilter(color)
+    })
+  })
+
   // Set up filter toggle
   const filterToggleBtn = document.getElementById('filter-toggle-btn')
   const filterRow = document.getElementById('filter-row')
@@ -132,6 +140,43 @@ function getCardDisplayHTML(card) {
     return `${card.name}<br><small>${card.version}</small>`
   }
   return card.name
+}
+
+// Toggle color filter
+function toggleColorFilter(color) {
+  const index = selectedColors.indexOf(color)
+
+  if (index !== -1) {
+    // Color already selected, remove it
+    selectedColors.splice(index, 1)
+  } else {
+    // Adding new color
+    if (selectedColors.length >= 2) {
+      // Already have 2 colors, remove the first one
+      selectedColors.shift()
+    }
+    selectedColors.push(color)
+  }
+
+  // Update UI
+  updateColorFilterUI()
+
+  // Re-render card browser
+  const queryInput = document.getElementById('card-query')
+  renderCardBrowser(queryInput ? queryInput.value : '')
+}
+
+// Update color filter icon active states
+function updateColorFilterUI() {
+  const colorFilterIcons = document.querySelectorAll('.color-filter-icon')
+  colorFilterIcons.forEach(icon => {
+    const color = icon.getAttribute('data-color')
+    if (selectedColors.includes(color)) {
+      icon.classList.add('active')
+    } else {
+      icon.classList.remove('active')
+    }
+  })
 }
 
 // Get card image URL
@@ -394,34 +439,51 @@ function getPackageColors(pkg) {
   return Array.from(colors).sort()
 }
 
-// Toggle pin for a package
-function togglePackagePin(index, event) {
-  event.stopPropagation()
-  const pkg = openPackages[index]
-  if (!pkg) return
+// Get package colors from its cards
+function getPackageColorsForDisplay(pkg) {
+  const colors = new Set()
 
-  if (pinnedPackageIds.has(pkg.id)) {
-    pinnedPackageIds.delete(pkg.id)
-  } else {
-    pinnedPackageIds.add(pkg.id)
+  if (!pkg.cards || pkg.cards.length === 0) {
+    return []
   }
-  renderPackageAccordion()
+
+  pkg.cards.forEach(card => {
+    if (card.colors && Array.isArray(card.colors)) {
+      card.colors.forEach(c => colors.add(c))
+    }
+  })
+
+  return Array.from(colors).sort()
 }
 
-// Check if package should be visible based on card filter
+// Check if package should be visible based on color filter
 function isPackageVisible(pkg) {
-  // Pinned packages are always visible
-  if (pinnedPackageIds.has(pkg.id)) {
+  if (selectedColors.length === 0) {
+    return true // No filter, show all
+  }
+
+  const pkgColors = getPackageColorsForDisplay(pkg)
+
+  // Empty packages should always show up
+  if (pkgColors.length === 0) {
     return true
   }
 
-  // If no cards are in browser, show all packages
-  if (visibleCardNames.size === 0) {
-    return true
+  if (selectedColors.length === 1) {
+    // Show packages that contain this color
+    return pkgColors.includes(selectedColors[0])
   }
 
-  // Package is visible if it has at least one card that's currently visible
-  return pkg.cards.some(card => visibleCardNames.has(card.name))
+  if (selectedColors.length === 2) {
+    // Show packages with exactly these two colors
+    const sortedPkgColors = [...pkgColors].sort()
+    const filterColors = [...selectedColors].sort()
+    return sortedPkgColors.length === 2 &&
+           sortedPkgColors[0] === filterColors[0] &&
+           sortedPkgColors[1] === filterColors[1]
+  }
+
+  return true
 }
 
 // Render package accordion
@@ -434,36 +496,22 @@ function renderPackageAccordion() {
     return
   }
 
-  // Separate pinned and unpinned packages
-  const pinnedPackages = []
-  const unpinnedPackages = []
-
-  openPackages.forEach((pkg, index) => {
-    const isPinned = pinnedPackageIds.has(pkg.id)
-    const isVisible = isPackageVisible(pkg)
-
-    if (!isVisible && !isPinned) return // Skip invisible, unpinned packages
-
-    const packageData = { pkg, index, isPinned }
-    if (isPinned) {
-      pinnedPackages.push(packageData)
-    } else {
-      unpinnedPackages.push(packageData)
-    }
+  // Filter packages by color
+  const visiblePackages = openPackages.filter((pkg, index) => {
+    return isPackageVisible(pkg)
   })
 
-  const packagesToRender = [...pinnedPackages, ...unpinnedPackages]
-
-  if (packagesToRender.length === 0) {
+  if (visiblePackages.length === 0) {
     container.innerHTML = '<div class="package-accordion-empty">No packages match current filter.</div>'
     return
   }
 
-  container.innerHTML = packagesToRender
-    .map(({ pkg, index, isPinned }) => {
+  container.innerHTML = visiblePackages
+    .map((pkg) => {
+      const index = openPackages.indexOf(pkg)
       const isExpanded = pkg.isExpanded
       const displayName = pkg.name || 'Untitled'
-      const colors = getPackageColors(pkg)
+      const colors = getPackageColorsForDisplay(pkg)
 
       // Render ink icons
       const inkIcons = colors.map(color => {
@@ -491,17 +539,11 @@ function renderPackageAccordion() {
       }
 
       return `
-        <div class="package-accordion-item ${isPinned ? 'pinned' : ''}">
+        <div class="package-accordion-item">
           <div class="package-accordion-header ${isExpanded ? 'expanded' : ''}" onclick="togglePackageExpanded(${index})">
             <div class="package-accordion-title">
               <span class="package-accordion-chevron">▸</span>
-              <button
-                class="pin-btn ${isPinned ? 'active' : ''}"
-                onclick="togglePackagePin(${index}, event)"
-                title="${isPinned ? 'Unpin package' : 'Pin package'}"
-              >
-                ${isPinned ? '★' : '☆'}
-              </button>
+              <div class="package-accordion-inks-inline">${inkIcons}</div>
               ${displayName}
             </div>
             <div class="package-accordion-actions">
@@ -511,7 +553,6 @@ function renderPackageAccordion() {
           <div class="package-accordion-content ${isExpanded ? 'expanded' : ''}">
             <div class="package-accordion-meta">
               <div class="package-accordion-count"><span>${pkg.cards.length}</span> cards</div>
-              <div class="package-accordion-inks">${inkIcons || '<span style="font-size: 0.85rem; color: #9ca3af;">No colors yet</span>'}</div>
             </div>
             ${cardsHTML}
           </div>
@@ -601,6 +642,34 @@ function renderCardBrowser(queryText = '') {
     fullQuery = fullQuery ? `${fullQuery} ${selectedFormat}` : selectedFormat
   }
 
+  // #TODO: We need to #dobetter here - if the query string has color filters (i:y, i:p, etc.),
+  // those should override the UI color filter buttons. For now, if there are query string color
+  // filters, we'll just let those take precedence and the UI buttons won't work as expected.
+  // Ideally we should detect query color filters and either:
+  // 1. Update the UI buttons to match the query
+  // 2. Remove color filters from query and always use UI buttons
+  // 3. Show a visual indicator that query is overriding UI
+
+  // Add color filter to query if selected (only if no color filter in query already)
+  const hasQueryColorFilter = /\bi[!:]?\w+/i.test(queryText)
+  if (!hasQueryColorFilter && selectedColors.length > 0) {
+    // Build color filter query
+    let colorQuery = ''
+    if (selectedColors.length === 1) {
+      // One color: show cards that have this color
+      colorQuery = `i:${colorToShorthand(selectedColors[0])}`
+    } else if (selectedColors.length === 2) {
+      // Two colors: show cards with exactly these colors (i!xy means exactly x and y)
+      const color1 = colorToShorthand(selectedColors[0])
+      const color2 = colorToShorthand(selectedColors[1])
+      colorQuery = `i!${color1}${color2}`
+    }
+
+    if (colorQuery) {
+      fullQuery = fullQuery ? `${fullQuery} ${colorQuery}` : colorQuery
+    }
+  }
+
   // Apply query filter
   if (fullQuery) {
     try {
@@ -624,15 +693,6 @@ function renderCardBrowser(queryText = '') {
 
   // Sort cards
   cardsToShow = sortCards(cardsToShow, sortBy, reverse)
-
-  // Update visible cards set for package filtering
-  visibleCardNames.clear()
-  cardsToShow.forEach(card => {
-    visibleCardNames.add(getCardFullName(card))
-  })
-
-  // Update package accordion based on visible cards
-  renderPackageAccordion()
 
   if (cardsToShow.length === 0) {
     container.innerHTML = '<p class="empty-state">No cards found</p>'
@@ -819,4 +879,17 @@ function normalizeInkColorAlias(char) {
     'silver': 'steel'
   }
   return aliases[char.toLowerCase()]
+}
+
+// Helper to convert color name to shorthand for query
+function colorToShorthand(colorName) {
+  const shorthand = {
+    'amber': 'y',
+    'amethyst': 'p',
+    'emerald': 'e',
+    'ruby': 'r',
+    'sapphire': 'b',
+    'steel': 's'
+  }
+  return shorthand[colorName.toLowerCase()] || colorName.toLowerCase()[0]
 }

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deck - Deckscribe</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="nav">
+    <h1>Deckscribe</h1>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Home</a>
+      <a href="cards.html" class="nav-link">Cards</a>
+      <a href="packages.html" class="nav-link">Packages</a>
+      <a href="decks.html" class="nav-link active">Decks</a>
+      <a href="syntax.html" class="nav-link">Syntax Guide</a>
+    </div>
+  </nav>
+
+  <main class="container split-view">
+    <!-- Sidebar: Builds Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h3 id="deck-title">Deck</h3>
+      </div>
+
+      <!-- Builds/New Build Toggle -->
+      <div class="build-nav-tabs">
+        <button id="builds-tab" class="build-nav-tab active" onclick="switchBuildTab('builds')">Builds</button>
+        <button id="new-build-tab" class="build-nav-tab" onclick="switchBuildTab('new-build')">New Build</button>
+      </div>
+
+      <!-- Builds List (Scrollable) -->
+      <div id="builds-view" class="sidebar-scroll-content">
+        <div id="builds-list" class="builds-list">
+          <p class="loading">Loading builds...</p>
+        </div>
+      </div>
+
+      <!-- New Build View (Hidden by default) -->
+      <div id="new-build-view" class="sidebar-scroll-content" style="display: none;">
+        <div class="new-build-placeholder">
+          <p style="color: #9ca3af; font-size: 0.85rem; padding: 1rem;">View cards in the main panel →</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content: Build Details -->
+    <div class="main-content">
+      <div id="build-content" class="build-content">
+        <p class="empty-state">Select a build to view details</p>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script src="js/deck-detail.js"></script>
+  <script>
+    // Initialize view on page load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initDeckDetailView)
+    } else {
+      initDeckDetailView()
+    }
+  </script>
+</body>
+</html>

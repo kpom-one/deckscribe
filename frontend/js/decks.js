@@ -171,9 +171,9 @@ async function loadBuildsForDeck(deckId) {
   }
 }
 
-// View deck details (placeholder for now)
+// View deck details
 function viewDeck(deckId) {
-  alert(`Deck detail view coming soon! Deck ID: ${deckId}`)
+  window.location.href = `deck-detail.html?deck=${deckId}`
 }
 
 // Format date helper

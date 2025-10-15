@@ -4,6 +4,7 @@ let packagesViewInitialized = false
 let allDecks = []
 let allPackages = []
 let selectedDeckId = null
+let selectedColors = [] // Array of selected color filters (max 2)
 
 // Initialize packages view
 async function initPackagesView() {
@@ -36,6 +37,15 @@ async function initPackagesView() {
       }
     })
   }
+
+  // Set up color filter icons
+  const colorFilterIcons = document.querySelectorAll('.color-filter-icon')
+  colorFilterIcons.forEach(icon => {
+    icon.addEventListener('click', () => {
+      const color = icon.getAttribute('data-color')
+      toggleColorFilter(color)
+    })
+  })
 }
 
 // Load decks from API
@@ -82,10 +92,20 @@ function renderDeckList() {
     return
   }
 
-  container.innerHTML = allDecks
+  // Filter decks by color
+  const filteredDecks = allDecks.filter(deck => deckMatchesColorFilter(deck))
+
+  if (filteredDecks.length === 0) {
+    container.innerHTML = '<div class="empty-state-small">No decks match the selected colors.</div>'
+    return
+  }
+
+  container.innerHTML = filteredDecks
     .map(deck => {
       const isSelected = selectedDeckId === deck.id
-      const inkIcons = deck.ink_identity.map(color => {
+      // Get colors from packages dynamically
+      const deckColors = getDeckColors(deck)
+      const inkIcons = deckColors.map(color => {
         return `<img class="ink-icon" src="img/${color.toLowerCase()}.png" alt="${color}" title="${color}">`
       }).join('')
 
@@ -108,6 +128,146 @@ function selectDeck(deckId) {
   }
   renderDeckList()
   renderPackageList()
+}
+
+// Toggle color filter
+function toggleColorFilter(color) {
+  const index = selectedColors.indexOf(color)
+
+  if (index !== -1) {
+    // Color already selected, remove it
+    selectedColors.splice(index, 1)
+  } else {
+    // Adding new color
+    if (selectedColors.length >= 2) {
+      // Already have 2 colors, remove the first one
+      selectedColors.shift()
+    }
+    selectedColors.push(color)
+  }
+
+  // Update UI
+  updateColorFilterUI()
+  renderDeckList()
+  renderPackageList()
+}
+
+// Update color filter icon active states
+function updateColorFilterUI() {
+  const colorFilterIcons = document.querySelectorAll('.color-filter-icon')
+  colorFilterIcons.forEach(icon => {
+    const color = icon.getAttribute('data-color')
+    if (selectedColors.includes(color)) {
+      icon.classList.add('active')
+    } else {
+      icon.classList.remove('active')
+    }
+  })
+}
+
+// Get deck colors from its packages
+function getDeckColors(deck) {
+  const colors = new Set()
+
+  // Get all packages in this deck
+  deck.packages.forEach(packageId => {
+    const pkg = allPackages.find(p => p.id === packageId)
+    if (pkg) {
+      const pkgColors = getPackageColors(pkg)
+      pkgColors.forEach(color => colors.add(color))
+    }
+  })
+
+  return Array.from(colors)
+}
+
+// Check if deck matches color filter
+function deckMatchesColorFilter(deck) {
+  if (selectedColors.length === 0) {
+    return true // No filter, show all
+  }
+
+  // Get deck colors from its packages (dynamically computed)
+  const deckColors = getDeckColors(deck)
+
+  // Empty decks should always show up
+  if (deckColors.length === 0) {
+    return true
+  }
+
+  if (selectedColors.length === 1) {
+    // Show decks that contain this color
+    return deckColors.includes(selectedColors[0])
+  }
+
+  if (selectedColors.length === 2) {
+    // Show decks with exactly these two colors
+    const sortedDeckColors = [...deckColors].sort()
+    const filterColors = [...selectedColors].sort()
+    return sortedDeckColors.length === 2 &&
+           sortedDeckColors[0] === filterColors[0] &&
+           sortedDeckColors[1] === filterColors[1]
+  }
+
+  return true
+}
+
+// Get package colors from cards
+function getPackageColors(pkg) {
+  const colors = new Set()
+
+  if (!pkg.cards || pkg.cards.length === 0) {
+    return []
+  }
+
+  pkg.cards.forEach(cardName => {
+    const normalizedName = cardName.toLowerCase()
+    const card = allCardsCache.find(c => {
+      const fullName = c.version ? `${c.name} - ${c.version}`.toLowerCase() : c.name.toLowerCase()
+      return fullName === normalizedName
+    })
+
+    if (card) {
+      // Get card inks
+      if (card.inks && Array.isArray(card.inks)) {
+        card.inks.forEach(ink => colors.add(ink))
+      } else if (card.ink) {
+        colors.add(card.ink)
+      }
+    }
+  })
+
+  return Array.from(colors)
+}
+
+// Check if package matches color filter
+function packageMatchesColorFilter(pkg) {
+  if (selectedColors.length === 0) {
+    return true // No filter, show all
+  }
+
+  const pkgColors = getPackageColors(pkg)
+
+  // Empty packages should always show up
+  if (pkgColors.length === 0) {
+    return true
+  }
+
+  if (selectedColors.length === 1) {
+    // Show packages that contain this color
+    return pkgColors.includes(selectedColors[0])
+  }
+
+  if (selectedColors.length === 2) {
+    // Show packages with exactly these two colors
+    const sortedPkgColors = [...pkgColors].sort()
+    const filterColors = [...selectedColors].sort()
+    return sortedPkgColors.length === 2 &&
+           sortedPkgColors[0] === filterColors[0] &&
+           sortedPkgColors[1] === filterColors[1]
+  }
+
+  return true
 }
 
 // Toggle package in/out of selected deck
@@ -164,9 +324,17 @@ function renderPackageList() {
     return
   }
 
+  // Filter packages by color
+  const filteredPackages = allPackages.filter(pkg => packageMatchesColorFilter(pkg))
+
+  if (filteredPackages.length === 0) {
+    container.innerHTML = '<p class="empty-state">No packages match the selected colors.</p>'
+    return
+  }
+
   const selectedDeck = selectedDeckId ? allDecks.find(d => d.id === selectedDeckId) : null
 
-  container.innerHTML = allPackages
+  container.innerHTML = filteredPackages
     .map(pkg => {
       const isInDeck = selectedDeck && selectedDeck.packages.includes(pkg.id)
       return `
@@ -211,7 +379,7 @@ function renderPackageCards(pkg) {
     .map(cardName => {
       const imageSrc = getCardImageByName(cardName)
       return `
-        <div class="package-card-item">
+        <div class="package-card-item" onclick="event.stopPropagation()">
           ${imageSrc
             ? `<img src="${imageSrc}" alt="${cardName}" class="package-card-image">`
             : `<div class="package-card-placeholder">${cardName}</div>`
