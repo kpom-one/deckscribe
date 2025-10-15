@@ -30,6 +30,15 @@ async function initDeckDetailView() {
   await loadDeck(deckId)
   await loadBuilds(deckId)
   renderBuildsList()
+
+  // Auto-select most recent build or switch to New Build tab
+  if (allBuilds.length > 0) {
+    // Select the first build (most recent)
+    selectBuild(allBuilds[0].id)
+  } else {
+    // No builds, switch to New Build tab
+    switchBuildTab('new-build')
+  }
 }
 
 // Load single deck from API
@@ -220,6 +229,9 @@ async function renderNewBuildInterface() {
   // Convert map to array
   const allCards = Array.from(cardMap.values())
 
+  // Store packages for stats display
+  currentPackages = allPackages
+
   // Initialize card counts first
   initializeCardCounts(allCards)
 
@@ -264,9 +276,9 @@ async function renderNewBuildInterface() {
         <h3>Statistics</h3>
         <div class="stats-grid">
           ${renderCostCurveChart(cardsByCost, stats)}
-          ${renderInkablePieChart(stats)}
           ${renderTypePieChart(stats)}
           ${renderKeywordsList(stats)}
+          ${renderInkablePieChart(stats)}
         </div>
       </div>
     </div>
@@ -290,11 +302,15 @@ async function renderNewBuildInterface() {
 
   html += '</div>'
   container.innerHTML = html
+
+  // Apply initial grouping mode display
+  setTimeout(() => updateCardDisplay(), 0)
 }
 
 // Initialize card counts (4x each by default)
 let cardCounts = {}
 let currentGroupingMode = 'cost' // 'cost', 'inkable', 'type', 'keyword'
+let currentPackages = [] // Store packages for stats display
 
 function initializeCardCounts(allCards) {
   cardCounts = {}
@@ -313,7 +329,7 @@ function setGroupingMode(mode) {
 // Update card display based on grouping mode
 function updateCardDisplay() {
   // Ban list for characteristics to exclude
-  const characteristicBanList = ['Storyborn', 'Floodborn']
+  const characteristicBanList = ['Storyborn', 'Floodborn', 'Dreamborn']
 
   // Get all cards data
   const allCards = []
@@ -377,13 +393,11 @@ function updateCardDisplay() {
         break
     }
 
-    // Add card to each group it belongs to
+    // Add card to each group it belongs to (without duplicates)
     groupKeys.forEach(groupKey => {
       if (!groups[groupKey]) groups[groupKey] = []
-      // Add this card 'count' times
-      for (let i = 0; i < cardData.count; i++) {
-        groups[groupKey].push(cardData)
-      }
+      // Only add card once with its count
+      groups[groupKey].push(cardData)
     })
   })
 
@@ -399,18 +413,60 @@ function updateCardDisplay() {
   let html = ''
   sortedKeys.forEach(key => {
     const cards = groups[key]
+
+    // Remove duplicates by grouping by card name
+    const uniqueCardsMap = new Map()
+    cards.forEach(cardData => {
+      const cardKey = cardData.name.toLowerCase()
+      if (!uniqueCardsMap.has(cardKey)) {
+        uniqueCardsMap.set(cardKey, cardData)
+      }
+    })
+    const uniqueCards = Array.from(uniqueCardsMap.values())
+
+    // Separate characters from non-characters for cost grouping
+    let leftCards = []
+    let rightCards = []
+
+    if (currentGroupingMode === 'cost') {
+      uniqueCards.forEach(cardData => {
+        const cardType = Array.isArray(cardData.card.type) ? cardData.card.type[0] : cardData.card.type
+        if (cardType === 'Character') {
+          leftCards.push(cardData)
+        } else {
+          rightCards.push(cardData)
+        }
+      })
+    } else {
+      leftCards = uniqueCards
+    }
+
+    const renderCardStack = (cardData) => {
+      const count = cardData.count
+      let stackHtml = `<div class="card-stack" onmouseenter="showCardPreview('${cardData.name.replace(/'/g, "\\'")}', event)" onmouseleave="hideCardPreview()">`
+      for (let i = 0; i < count; i++) {
+        stackHtml += `
+          <div class="build-card-item stacked" style="--stack-index: ${i};">
+            ${cardData.image
+              ? `<img src="${cardData.image}" alt="${cardData.name}" class="build-card-image">`
+              : `<div class="build-card-placeholder">${cardData.name}</div>`
+            }
+          </div>
+        `
+      }
+      stackHtml += '</div>'
+      return stackHtml
+    }
+
     html += `
       <div class="cost-group-compact">
         <div class="cost-label-compact">${key}</div>
         <div class="cost-group-cards-compact">
-          ${cards.map(cardData => `
-            <div class="build-card-item" onclick="event.stopPropagation()">
-              ${cardData.image
-                ? `<img src="${cardData.image}" alt="${cardData.name}" class="build-card-image">`
-                : `<div class="build-card-placeholder">${cardData.name}</div>`
-              }
-            </div>
-          `).join('')}
+          ${currentGroupingMode === 'cost' && rightCards.length > 0 ? '<div class="cards-left-group">' : ''}
+          ${leftCards.map(cardData => renderCardStack(cardData)).join('')}
+          ${currentGroupingMode === 'cost' && rightCards.length > 0 ? '</div><div class="card-divider"></div><div class="cards-right-group">' : ''}
+          ${rightCards.map(cardData => renderCardStack(cardData)).join('')}
+          ${currentGroupingMode === 'cost' && rightCards.length > 0 ? '</div>' : ''}
         </div>
       </div>
     `
@@ -421,26 +477,68 @@ function updateCardDisplay() {
 
 // Render cost group cards with quantity
 function renderCostGroupCards(cards) {
-  const cardsHtml = []
-
+  // Group cards by unique name
+  const uniqueCardsMap = new Map()
   cards.forEach(card => {
     const cardName = card.name.toLowerCase()
-    const count = cardCounts[cardName] || 0
+    if (!uniqueCardsMap.has(cardName)) {
+      uniqueCardsMap.set(cardName, {
+        ...card,
+        count: cardCounts[cardName] || 0
+      })
+    }
+  })
+  const uniqueCards = Array.from(uniqueCardsMap.values())
 
-    // Render the card 'count' times
+  // Separate characters from non-characters
+  const characters = []
+  const nonCharacters = []
+
+  uniqueCards.forEach(card => {
+    const cardType = Array.isArray(card.card.type) ? card.card.type[0] : card.card.type
+    if (cardType === 'Character') {
+      characters.push(card)
+    } else {
+      nonCharacters.push(card)
+    }
+  })
+
+  const renderCardStack = (card) => {
+    const cardName = card.name.toLowerCase()
+    const count = card.count
+    let stackHtml = `<div class="card-stack" onmouseenter="showCardPreview('${cardName.replace(/'/g, "\\'")}', event)" onmouseleave="hideCardPreview()">`
     for (let i = 0; i < count; i++) {
-      cardsHtml.push(`
-        <div class="build-card-item" onclick="event.stopPropagation()">
+      stackHtml += `
+        <div class="build-card-item stacked" style="--stack-index: ${i};">
           ${card.image
             ? `<img src="${card.image}" alt="${card.name}" class="build-card-image">`
             : `<div class="build-card-placeholder">${card.name}</div>`
           }
         </div>
-      `)
+      `
     }
-  })
+    stackHtml += '</div>'
+    return stackHtml
+  }
 
-  return cardsHtml.join('')
+  let html = ''
+
+  if (nonCharacters.length > 0 && characters.length > 0) {
+    // Split layout with groups
+    html += '<div class="cards-left-group">'
+    html += characters.map(card => renderCardStack(card)).join('')
+    html += '</div>'
+    html += '<div class="card-divider"></div>'
+    html += '<div class="cards-right-group">'
+    html += nonCharacters.map(card => renderCardStack(card)).join('')
+    html += '</div>'
+  } else {
+    // No split, just render all cards
+    html += characters.map(card => renderCardStack(card)).join('')
+    html += nonCharacters.map(card => renderCardStack(card)).join('')
+  }
+
+  return html
 }
 
 // Generate deck list
@@ -491,7 +589,8 @@ function setCardCount(cardName, count, event) {
 
 // Calculate deck statistics based on current counts
 function calculateDeckStats(allCards) {
-  const characteristicBanList = ['Storyborn', 'Floodborn']
+  const characteristicBanList = ['Storyborn', 'Floodborn', 'Dreamborn']
+  const typeBanList = ['Dreamborn']
 
   const stats = {
     totalCards: 0,
@@ -515,9 +614,11 @@ function calculateDeckStats(allCards) {
       stats.nonInkable += count
     }
 
-    // Type stats
+    // Type stats (excluding banned types)
     const cardType = Array.isArray(card.type) ? card.type[0] : (card.type || 'Unknown')
-    stats.types[cardType] = (stats.types[cardType] || 0) + count
+    if (!typeBanList.includes(cardType)) {
+      stats.types[cardType] = (stats.types[cardType] || 0) + count
+    }
 
     // Characteristics (using classifications field, excluding banned ones)
     if (card.classifications && Array.isArray(card.classifications)) {
@@ -572,9 +673,9 @@ function updateStatsDisplay() {
   if (statsGrid) {
     statsGrid.innerHTML = `
       ${renderCostCurveChart(cardsByCost, stats)}
-      ${renderInkablePieChart(stats)}
       ${renderTypePieChart(stats)}
       ${renderKeywordsList(stats)}
+      ${renderInkablePieChart(stats)}
     `
   }
 
@@ -594,7 +695,7 @@ function renderCostCurveChart(cardsByCost, stats) {
 
   if (costs.length === 0) {
     return `
-      <div class="stat-box clickable ${currentGroupingMode === 'cost' ? 'active' : ''}" onclick="setGroupingMode('cost')">
+      <div class="stat-box full-width clickable ${currentGroupingMode === 'cost' ? 'active' : ''}" onclick="setGroupingMode('cost')">
         <h4>Cost Curve</h4>
         <div class="cost-curve-chart">
           <em style="color: #9ca3af;">No cards</em>
@@ -618,7 +719,7 @@ function renderCostCurveChart(cardsByCost, stats) {
   }).join('')
 
   return `
-    <div class="stat-box clickable ${currentGroupingMode === 'cost' ? 'active' : ''}" onclick="setGroupingMode('cost')">
+    <div class="stat-box full-width clickable ${currentGroupingMode === 'cost' ? 'active' : ''}" onclick="setGroupingMode('cost')">
       <h4>Cost Curve</h4>
       <div class="cost-curve-chart">
         ${bars}
@@ -698,6 +799,34 @@ function renderKeywordsList(stats) {
   `
 }
 
+// Render packages list
+function renderPackagesList() {
+  if (currentPackages.length === 0) {
+    return `
+      <div class="stat-box full-width">
+        <h4>Packages</h4>
+        <div class="packages-list">
+          <em style="color: #9ca3af;">No packages</em>
+        </div>
+      </div>
+    `
+  }
+
+  const items = currentPackages.map(pkg => {
+    const cardCount = pkg.cards ? pkg.cards.length : 0
+    return `<div class="package-item"><strong>${pkg.name}</strong> (${cardCount} cards)</div>`
+  }).join('')
+
+  return `
+    <div class="stat-box full-width">
+      <h4>Packages</h4>
+      <div class="packages-list">
+        ${items}
+      </div>
+    </div>
+  `
+}
+
 // Show card preview on hover
 function showCardPreview(cardName, event) {
   const card = getCardByName(cardName)
@@ -706,21 +835,17 @@ function showCardPreview(cardName, event) {
   const image = getCardImageByName(cardName)
   if (!image) return
 
-  // Create or update preview element
+  // Create or update hover preview
   let preview = document.getElementById('card-hover-preview')
   if (!preview) {
     preview = document.createElement('div')
     preview.id = 'card-hover-preview'
-    preview.className = 'card-hover-preview'
+    preview.className = 'card-hover-preview-fixed'
     document.body.appendChild(preview)
   }
 
   preview.innerHTML = `<img src="${image}" alt="${cardName}">`
   preview.style.display = 'block'
-
-  // Position near cursor
-  preview.style.left = `${event.clientX + 15}px`
-  preview.style.top = `${event.clientY - 150}px`
 }
 
 // Hide card preview
